@@ -1,0 +1,797 @@
+@* 账号管理页面组件 - 现代化设计 *@
+@using ourmclauncher.Models
+@inject AccountManagerService AccountManagerService
+@inject MicrosoftAuthService MicrosoftAuthService
+@inject NotificationService NotificationService
+@implements IDisposable
+
+<style>
+    .account-modern-container {
+        --account-primary: #6366f1;
+        --account-success: #10b981;
+        --account-warning: #f59e0b;
+        --account-danger: #ef4444;
+        --account-dark: #1e293b;
+        --account-light: #f8fafc;
+    }
+
+    .modern-page-wrapper {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 2rem;
+    }
+
+    .modern-header {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    .modern-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--account-dark);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .modern-subtitle {
+        color: #64748b;
+        margin-top: 0.5rem;
+        font-size: 1rem;
+    }
+
+    .modern-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .modern-btn-primary {
+        background: linear-gradient(135deg, var(--account-primary) 0%, #8b5cf6 100%);
+        color: white;
+        border: none;
+        padding: 0.875rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .modern-btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+    }
+
+    .modern-btn-secondary {
+        background: white;
+        color: var(--account-dark);
+        border: 2px solid #e2e8f0;
+        padding: 0.875rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .modern-btn-secondary:hover {
+        border-color: var(--account-primary);
+        color: var(--account-primary);
+    }
+
+    .account-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .modern-account-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        border: 2px solid transparent;
+    }
+
+    .modern-account-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .modern-account-card.default {
+        border-color: var(--account-warning);
+        background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+    }
+
+    .account-card-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .modern-avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        position: relative;
+    }
+
+    .modern-avatar img {
+        width: 100%;
+        height: 100%;
+        border-radius: 16px;
+        object-fit: cover;
+    }
+
+    .avatar-badge {
+        position: absolute;
+        bottom: -4px;
+        right: -4px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 3px solid white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+    }
+
+    .badge-microsoft { background: #00a4ef; }
+    .badge-offline { background: var(--account-dark); }
+    .badge-skin { background: var(--account-success); }
+
+    .account-info h3 {
+        margin: 0;
+        font-size: 1.25rem;
+        color: var(--account-dark);
+        font-weight: 700;
+    }
+
+    .account-info p {
+        margin: 0.25rem 0 0 0;
+        color: #64748b;
+        font-size: 0.875rem;
+    }
+
+    .account-type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-top: 0.5rem;
+    }
+
+    .badge-offline {
+        background: #f1f5f9;
+        color: #64748b;
+    }
+
+    .badge-microsoft {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .badge-skin {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .default-badge {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: linear-gradient(135deg, var(--account-warning) 0%, #f97316 100%);
+        color: white;
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    }
+
+    .account-card-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .account-action-btn {
+        flex: 1;
+        padding: 0.625rem 1rem;
+        border-radius: 10px;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.375rem;
+    }
+
+    .btn-set-default {
+        background: #f0fdf4;
+        color: var(--account-success);
+    }
+
+    .btn-set-default:hover {
+        background: #dcfce7;
+    }
+
+    .btn-delete {
+        background: #fef2f2;
+        color: var(--account-danger);
+    }
+
+    .btn-delete:hover {
+        background: #fee2e2;
+    }
+
+    .no-accounts-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        border: 2px dashed #cbd5e1;
+    }
+
+    .no-accounts-state svg {
+        width: 64px;
+        height: 64px;
+        color: #94a3b8;
+        margin-bottom: 1rem;
+    }
+
+    .no-accounts-state p {
+        color: #64748b;
+        font-size: 1.125rem;
+        margin: 0;
+    }
+
+    .add-account-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .add-account-content {
+        background: white;
+        border-radius: 24px;
+        padding: 2rem;
+        max-width: 600px;
+        width: 90%;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    .account-type-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 1.5rem 0;
+    }
+
+    .account-type-option {
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .account-type-option:hover {
+        border-color: var(--account-primary);
+        background: #f0f9ff;
+        transform: scale(1.02);
+    }
+
+    .account-type-option svg {
+        width: 48px;
+        height: 48px;
+        color: var(--account-primary);
+        margin-bottom: 1rem;
+    }
+
+    .account-type-option h4 {
+        margin: 0 0 0.5rem 0;
+        color: var(--account-dark);
+        font-size: 1.125rem;
+    }
+
+    .account-type-option p {
+        margin: 0;
+        color: #64748b;
+        font-size: 0.875rem;
+    }
+</style>
+
+<div class="account-modern-container">
+    <div class="modern-page-wrapper">
+        <div class="modern-header">
+            <div class="modern-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 32px; height: 32px;">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                账号管理
+            </div>
+            <p class="modern-subtitle">管理您的游戏账号，支持离线、微软和皮肤站账号</p>
+            <div class="modern-actions">
+                <button class="modern-btn-primary" @onclick="ShowAddAccountMenu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    添加账号
+                </button>
+                <button class="modern-btn-secondary" @onclick="RefreshAccounts">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;">
+                        <polyline points="23,4 23,10 17,10"/>
+                        <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+                    </svg>
+                    刷新
+                </button>
+            </div>
+        </div>
+
+        @if (Accounts.Any())
+        {
+            <div class="account-grid">
+                @foreach (var account in Accounts)
+                {
+                    <div class="modern-account-card @(account.IsDefault ? "default" : "")">
+                        @if (account.IsDefault)
+                        {
+                            <div class="default-badge">默认</div>
+                        }
+                        <div class="account-card-header">
+                            <div class="modern-avatar">
+                                @if (account.Type == AccountType.Microsoft || account.Type == AccountType.SkinSite)
+                                {
+                                    <img src="@account.Avatar" alt="头像"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                                    <svg style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                        <circle cx="12" cy="7" r="4"/>
+                                    </svg>
+                                }
+                                else
+                                {
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                        <circle cx="12" cy="7" r="4"/>
+                                    </svg>
+                                }
+                                <div class="avatar-badge @(account.Type == AccountType.Microsoft ? "badge-microsoft" : account.Type == AccountType.SkinSite ? "badge-skin" : "badge-offline")">
+                                    @if (account.Type == AccountType.Microsoft)
+                                    {
+                                        <span>MS</span>
+                                    }
+                                    else if (account.Type == AccountType.SkinSite)
+                                    {
+                                        <span>S</span>
+                                    }
+                                    else
+                                    {
+                                        <span>OFF</span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="account-info">
+                                <h3>@account.Username</h3>
+                                <p>@account.Nickname</p>
+                                <div class="account-type-badge @(account.Type == AccountType.Microsoft ? "badge-microsoft" : account.Type == AccountType.SkinSite ? "badge-skin" : "badge-offline")">
+                                    @GetAccountTypeIcon(account.Type)
+                                    @GetAccountTypeString(account.Type)
+                                </div>
+                            </div>
+                        </div>
+                        <div class="account-card-actions">
+                            @if (!account.IsDefault)
+                            {
+                                <button class="account-action-btn btn-set-default" @onclick="() => SetDefaultAccount(account.Id)">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <path d="M12 16v4"/>
+                                        <path d="M12 20h.01"/>
+                                    </svg>
+                                    设为默认
+                                </button>
+                            }
+                            <button class="account-action-btn btn-delete" @onclick="() => DeleteAccount(account.Id)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+                                    <polyline points="3,6 5,6 21,6"/>
+                                    <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                </svg>
+                                删除
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="no-accounts-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                <p>暂无账号，点击"添加账号"开始使用</p>
+            </div>
+        }
+    </div>
+
+    @if (ShowAddMenu)
+    {
+        <div class="add-account-modal" @onclick="HideAddAccountMenu">
+            <div class="add-account-content" @onclick:stopPropagation>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0; font-size: 1.5rem; color: var(--account-dark);">选择账号类型</h3>
+                    <button class="modern-btn-secondary" @onclick="HideAddAccountMenu" style="padding: 0.5rem 1rem;">✕</button>
+                </div>
+                <div class="account-type-grid">
+                    <div class="account-type-option" @onclick="AddOfflineAccount">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="8.5" cy="7" r="4"/>
+                            <line x1="20" y1="8" x2="20" y2="14"/>
+                            <line x1="23" y1="11" x2="17" y2="11"/>
+                        </svg>
+                        <h4>离线账号</h4>
+                        <p>无需联网，输入玩家名称即可</p>
+                    </div>
+                    <div class="account-type-option" @onclick="StartMicrosoftLogin">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 16v4"/>
+                            <path d="M12 20h.01"/>
+                            <path d="M4.93 4.93l4.24 4.24"/>
+                            <path d="M14.83 14.83l4.24 4.24"/>
+                            <path d="M14.83 9.17l4.24-4.24"/>
+                            <path d="M4.93 19.07l4.24-4.24"/>
+                        </svg>
+                        <h4>微软账号</h4>
+                        <p>登录微软账号，正版验证</p>
+                    </div>
+                    <div class="account-type-option" @onclick="AddSkinSiteAccount">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.47a1 1 0 00.99.84L6 10.4l.34 1.77a2 2 0 00.75 1.29l.36.25a1 1 0 01.39 1.25l.36-.25a2 2 0 00.75-1.29L9 10.4l1.15-.4a1 1 0 00.99-.84l.58-3.47a2 2 0 00-1.34-2.23z"/>
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 16v4"/>
+                            <path d="M12 20h.01"/>
+                        </svg>
+                        <h4>皮肤站账号</h4>
+                        <p>登录皮肤站，自定义皮肤</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (ShowOfflineAccountForm)
+    {
+        <div class="add-account-modal" @onclick="HideOfflineAccountForm">
+            <div class="add-account-content" @onclick:stopPropagation>
+                <h3 style="margin: 0 0 1.5rem 0; font-size: 1.5rem; color: var(--account-dark);">添加离线账号</h3>
+                <div class="form-group">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--account-dark); font-weight: 600;">玩家名称</label>
+                    <input type="text" @bind="offlineUsername" placeholder="输入游戏内显示的名称"
+                           style="width: 100%; padding: 0.875rem; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 1rem;" />
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button class="modern-btn-primary" @onclick="ConfirmAddOfflineAccount" style="flex: 1;">确认添加</button>
+                    <button class="modern-btn-secondary" @onclick="HideOfflineAccountForm" style="flex: 1;">取消</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (IsMicrosoftLoginInProgress)
+    {
+        <div class="add-account-modal" @onclick="CancelMicrosoftLogin">
+            <div class="add-account-content" @onclick:stopPropagation>
+                <h3 style="margin: 0 0 1.5rem 0; font-size: 1.5rem; color: var(--account-dark);">微软账号登录</h3>
+                <div class="form-group">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--account-dark); font-weight: 600;">设备代码</label>
+                    <div style="font-size: 2rem; font-weight: 700; color: var(--account-primary);">@UserCode</div>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button class="modern-btn-primary" @onclick="OpenMicrosoftVerificationPage" style="flex: 1;">打开登录页面</button>
+                    <button class="modern-btn-secondary" @onclick="CancelMicrosoftLogin" style="flex: 1;">取消</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private List<Account> Accounts = new();
+    private bool ShowAddMenu;
+    private bool ShowOfflineAccountForm;
+    private bool IsMicrosoftLoginInProgress;
+    private string offlineUsername = "";
+    private string UserCode = "";
+    private string VerificationUrl = "";
+    private string DeviceCode = "";
+    private CancellationTokenSource? microsoftLoginCts;
+
+    protected override void OnInitialized()
+    {
+        RefreshAccounts();
+    }
+
+    private void RefreshAccounts()
+    {
+        Accounts = AccountManagerService.GetAccounts();
+        StateHasChanged();
+    }
+
+    private void ShowAddAccountMenu()
+    {
+        ShowAddMenu = true;
+        StateHasChanged();
+    }
+
+    private void HideAddAccountMenu()
+    {
+        ShowAddMenu = false;
+        StateHasChanged();
+    }
+
+    private void AddOfflineAccount()
+    {
+        HideAddAccountMenu();
+        ShowOfflineAccountForm = true;
+        StateHasChanged();
+    }
+
+    private void HideOfflineAccountForm()
+    {
+        ShowOfflineAccountForm = false;
+        offlineUsername = "";
+        StateHasChanged();
+    }
+
+    private async Task ConfirmAddOfflineAccount()
+    {
+        if (string.IsNullOrWhiteSpace(offlineUsername))
+        {
+            await NotificationService.Warning("请输入玩家名称", 2000);
+            return;
+        }
+
+        var account = new Account
+        {
+            Type = AccountType.Offline,
+            Username = offlineUsername.Trim(),
+            Nickname = offlineUsername.Trim(),
+            Avatar = ""
+        };
+
+        AccountManagerService.AddAccount(account);
+        HideOfflineAccountForm();
+        RefreshAccounts();
+        await NotificationService.Success("离线账号添加成功！", 2000);
+    }
+
+    private async Task StartMicrosoftLogin()
+    {
+        HideAddAccountMenu();
+        CancelMicrosoftLogin();
+        var loginCts = new CancellationTokenSource();
+        microsoftLoginCts = loginCts;
+
+        var result = await MicrosoftAuthService.GetDeviceCodeAsync(loginCts.Token);
+        if (!result.success ||
+            string.IsNullOrEmpty(result.deviceCode) ||
+            string.IsNullOrEmpty(result.userCode) ||
+            string.IsNullOrEmpty(result.verificationUri))
+        {
+            await NotificationService.Error(result.message ?? "无法启动微软登录", 4000);
+            CancelMicrosoftLogin();
+            loginCts.Dispose();
+            return;
+        }
+
+        DeviceCode = result.deviceCode;
+        UserCode = result.userCode;
+        VerificationUrl = result.verificationUri;
+        IsMicrosoftLoginInProgress = true;
+        StateHasChanged();
+        OpenMicrosoftVerificationPage();
+
+        await PollMicrosoftLoginAsync(loginCts, DeviceCode);
+    }
+
+    private async Task PollMicrosoftLoginAsync(
+        CancellationTokenSource loginCts,
+        string deviceCode)
+    {
+        var cancellationToken = loginCts.Token;
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                var result = await MicrosoftAuthService.PollForTokenAsync(deviceCode, cancellationToken);
+                if (result.Pending)
+                {
+                    continue;
+                }
+
+                if (!result.Success || result.Account == null)
+                {
+                    await NotificationService.Error(result.Message ?? "微软登录失败", 5000);
+                    break;
+                }
+
+                var existing = Accounts.FirstOrDefault(account =>
+                    account.Type == AccountType.Microsoft &&
+                    account.Uuid == result.Account.Uuid);
+                if (existing == null)
+                {
+                    AccountManagerService.AddAccount(result.Account);
+                }
+                else
+                {
+                    existing.Username = result.Account.Username;
+                    existing.Nickname = result.Account.Nickname;
+                    existing.Uuid = result.Account.Uuid;
+                    existing.Xuid = result.Account.Xuid;
+                    existing.AccessToken = result.Account.AccessToken;
+                    existing.RefreshToken = result.Account.RefreshToken;
+                    existing.ExpiresAt = result.Account.ExpiresAt;
+                    AccountManagerService.UpdateAccount(existing);
+                }
+
+                RefreshAccounts();
+                await NotificationService.Success($"微软账号 {result.Account.Username} 登录成功", 3000);
+                break;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            loginCts.Dispose();
+            if (ReferenceEquals(microsoftLoginCts, loginCts))
+            {
+                microsoftLoginCts = null;
+                ResetMicrosoftLoginState();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private void OpenMicrosoftVerificationPage()
+    {
+        if (string.IsNullOrWhiteSpace(VerificationUrl))
+        {
+            return;
+        }
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(VerificationUrl)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"打开微软登录页面失败: {ex.Message}");
+        }
+    }
+
+    private void CancelMicrosoftLogin()
+    {
+        var loginCts = microsoftLoginCts;
+        microsoftLoginCts = null;
+        loginCts?.Cancel();
+        ResetMicrosoftLoginState();
+    }
+
+    private void ResetMicrosoftLoginState()
+    {
+        IsMicrosoftLoginInProgress = false;
+        DeviceCode = "";
+        UserCode = "";
+        VerificationUrl = "";
+    }
+
+    private async Task AddSkinSiteAccount()
+    {
+        HideAddAccountMenu();
+        await NotificationService.Info("皮肤站账号功能开发中...", 2000);
+    }
+
+    private void SetDefaultAccount(string accountId)
+    {
+        AccountManagerService.SetDefaultAccount(accountId);
+        RefreshAccounts();
+    }
+
+    private async Task DeleteAccount(string accountId)
+    {
+        var account = Accounts.FirstOrDefault(a => a.Id == accountId);
+        if (account == null) return;
+
+        AccountManagerService.RemoveAccount(accountId);
+        RefreshAccounts();
+        await NotificationService.Success($"账号 {account.Username} 已删除", 2000);
+    }
+
+    private string GetAccountTypeString(AccountType type)
+    {
+        return type switch
+        {
+            AccountType.Offline => "离线账号",
+            AccountType.Microsoft => "微软账号",
+            AccountType.SkinSite => "皮肤站账号",
+            _ => "未知类型"
+        };
+    }
+
+    private string GetAccountTypeIcon(AccountType type)
+    {
+        return type switch
+        {
+            AccountType.Offline => "🎮",
+            AccountType.Microsoft => "🔷",
+            AccountType.SkinSite => "👤",
+            _ => "❓"
+        };
+    }
+
+    public void Dispose()
+    {
+        microsoftLoginCts?.Cancel();
+        microsoftLoginCts?.Dispose();
+    }
+}

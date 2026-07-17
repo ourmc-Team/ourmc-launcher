@@ -24,7 +24,16 @@ public class PathService
     /// <summary>
     /// 当前游戏目录（从设置获取或使用默认值）
     /// </summary>
-    public string GameDir => _settings.GetGameDirectory() ?? DefaultGameDir;
+    public string GameDir
+    {
+        get
+        {
+            var configuredDirectory = _settings.GetGameDirectory();
+            return string.IsNullOrWhiteSpace(configuredDirectory)
+                ? DefaultGameDir
+                : configuredDirectory;
+        }
+    }
     
     public PathService(SettingsService settings)
     {
@@ -45,6 +54,14 @@ public class PathService
     public string GetVersionDir(string versionName)
     {
         return Path.Combine(GameDir, "versions", versionName);
+    }
+
+    /// <summary>
+    /// 获取版本根目录路径
+    /// </summary>
+    public string GetVersionsDir()
+    {
+        return Path.Combine(GameDir, "versions");
     }
     
     /// <summary>

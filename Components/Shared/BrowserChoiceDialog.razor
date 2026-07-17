@@ -1,0 +1,42 @@
+@* 浏览器选择对话框 *@
+@using ourmclauncher.Models
+
+<div class="browser-choice-overlay" @onclick="OnCancel">
+    <div class="browser-choice-modal" @onclick:stopPropagation="true">
+        <div class="browser-choice-header">
+            <h3>@Title</h3>
+            <button class="choice-close-btn" @onclick="OnCancel">&times;</button>
+        </div>
+        <div class="browser-choice-body">
+            <p style="color: #b0b0b0; margin-bottom: 20px;">选择打开方式：</p>
+            <div class="choice-options">
+                <button class="choice-option" @onclick="OnEmbed">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:48px;height:48px;">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="9" y1="3" x2="9" y2="21"/>
+                        <line x1="15" y1="9" x2="15" y2="15"/>
+                        <line x1="15" y1="18" x2="9" y2="21"/>
+                    </svg>
+                    <span>内嵌显示</span>
+                    <small style="color: #888; display: block; margin-top: 4px;">在启动器内显示网页</small>
+                </button>
+                <button class="choice-option" @onclick="OnExternal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:48px;height:48px;">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                        <polyline points="15,3 21,9 3"/>
+                        <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                    <span>外部浏览器</span>
+                    <small style="color: #888; display: block; margin-top: 4px;">使用默认浏览器打开</small>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "打开网页";
+    [Parameter] public EventCallback OnEmbed { get; set; }
+    [Parameter] public EventCallback OnExternal { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+}

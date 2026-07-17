@@ -1,0 +1,82 @@
+@* 登录/注册页面组件 *@
+@using ourmclauncher.Models
+
+<div class="login-page">
+    <div class="login-container">
+        <div class="login-logo">
+            <h1 class="mc-font">ourmcLauncher</h1>
+            <p style="color: #888; margin-top: 8px;">登录或注册以继续</p>
+        </div>
+
+        <div class="login-form">
+            <div class="form-group">
+                <label>邮箱地址</label>
+                <input type="email" @bind="email" @bind:event="oninput" placeholder="请输入邮箱" />
+            </div>
+
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" @bind="password" @bind:event="oninput" placeholder="请输入密码" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="error-message">@errorMessage</div>
+            }
+
+            <div class="login-actions">
+                <button class="btn-primary btn-block" @onclick="HandleLoginClick">
+                    @(isLoading ? "登录中..." : "登录")
+                </button>
+            </div>
+
+            <div class="login-footer">
+                <p style="color: #888; font-size: 13px;">
+                    还没有账号？
+                    <a href="#" @onclick:preventDefault="true" @onclick="HandleRegister" style="color: #4CAF50; text-decoration: none;">立即注册</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string email = "";
+    private string password = "";
+    private string errorMessage = "";
+    private bool isLoading = false;
+
+    [Parameter] public EventCallback<(string email, string password)> OnLogin { get; set; }
+    [Parameter] public EventCallback OnRegister { get; set; }
+
+    private async Task HandleLoginClick()
+    {
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "请输入邮箱和密码";
+            return;
+        }
+
+        isLoading = true;
+        errorMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            await OnLogin.InvokeAsync((email, password));
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void HandleRegister()
+    {
+        // 暂时简单实现，打开注册页面
+        // 后续可以实现完整的注册流程
+        errorMessage = "注册功能开发中，请联系管理员";
+        StateHasChanged();
+    }
+}

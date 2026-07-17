@@ -1,0 +1,107 @@
+name: 构建与发布
+
+on:
+  push:
+    branches: ["*"]
+    paths-ignore:
+      - "**.md"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "发布类型"
+        required: true
+        default: "test"
+        type: choice
+        options:
+          - test
+          - prerelease
+          - release
+      version_override:
+        description: "自定义版本号（留空自动生成）"
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET 8.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: 还原依赖
+        run: dotnet restore
+
+      - name: 发布（单文件自包含）
+        run: dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -o ./publish
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ourmclauncher.exe
+          path: ./publish/ourmclauncher.exe
+          if-no-files-found: error
+
+  release:
+    name: 发布 Release
+    needs: [build]
+    if: github.event.inputs.release_type != 'test'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 下载构建产物
+        uses: actions/download-artifact@v4
+        with:
+          name: ourmclauncher.exe
+          path: ./release-artifacts
+
+      - name: 生成校验和
+        working-directory: ./release-artifacts
+        run: |
+          sha256sum ourmclauncher.exe > checksums.txt
+          cat checksums.txt
+
+      - name: 确定版本号
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version_override }}" ]; then
+            echo "tag=${{ github.event.inputs.version_override }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$(date +'%Y%m%d%H%M%S')" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 创建 Release（手动触发）
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "OML Launcher ${{ steps.version.outputs.tag }}"
+          body: |
+            ## OML Launcher ${{ steps.version.outputs.tag }}
+
+            ### 使用说明
+            下载 `ourmclauncher.exe`，双击运行即可。
+            已内置 .NET 8 运行时 + WebView2 原生库，无需额外安装。
+
+            ### 系统要求
+            - Windows 10/11 64位
+            - Java 8+（启动游戏需要）
+          draft: false
+          prerelease: ${{ github.event.inputs.release_type == 'prerelease' }}
+          files: |
+            ./release-artifacts/ourmclauncher.exe
+            ./release-artifacts/checksums.txt

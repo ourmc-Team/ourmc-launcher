@@ -1,0 +1,125 @@
+@using ourmclauncher.Services
+@inject LaunchPresetService LaunchPresetService
+@inject SettingsService SettingsService
+@inject NotificationService NotificationService
+
+<div class="launch-config-page">
+    <div class="launch-config-header">
+        <div>
+            <h3>启动优化</h3>
+            <p>按电脑内存选择分配大小，并使用兼容的 JVM 预设。</p>
+        </div>
+        <button class="btn-icon" @onclick="OnClose" title="返回版本列表" aria-label="返回版本列表">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+            </svg>
+        </button>
+    </div>
+
+    <section class="launch-config-section">
+        <div class="system-memory-row">
+            <span><small>系统内存</small><strong>@FormatMemory(SystemMemory)</strong></span>
+            <span><small>建议上限</small><strong>@FormatMemory(MaxRecommendedMemory)</strong></span>
+            <span><small>当前分配</small><strong class="value-success">@FormatMemory(OptimizedMemory)</strong></span>
+        </div>
+        <label class="form-group memory-control">
+            <span>游戏最大内存</span>
+            <input class="settings-range" type="range" min="512" max="@MemorySliderMaximum" step="256"
+                   @bind="OptimizedMemory" @bind:event="oninput" />
+            <small>建议为系统保留至少 2 GB；大型整合包通常需要 6 至 8 GB。</small>
+        </label>
+    </section>
+
+    <section class="launch-config-section">
+        <div class="launch-config-section-title">
+            <div>
+                <h4>JVM 预设</h4>
+                <p>预设不包含内存参数，不会与内存设置冲突。</p>
+            </div>
+        </div>
+        <div class="optimization-presets" role="radiogroup" aria-label="JVM 优化预设">
+            @foreach (var preset in Presets)
+            {
+                <button class="optimization-preset @(SelectedPreset == preset.Type ? "active" : "")"
+                        @onclick="() => SelectPreset(preset.Type)" role="radio"
+                        aria-checked="@(SelectedPreset == preset.Type)">
+                    <span><strong>@preset.Name</strong><small>@preset.Description</small></span>
+                    <code>@(string.IsNullOrWhiteSpace(preset.JvmArgs) ? "使用 Java 默认配置" : preset.JvmArgs)</code>
+                </button>
+            }
+        </div>
+    </section>
+
+    <section class="launch-config-section launch-preview-section">
+        <h4>将要保存的配置</h4>
+        <code>-Xmx@(OptimizedMemory)M @(SelectedPresetArgs)</code>
+        @if (OptimizedMemory > MaxRecommendedMemory)
+        {
+            <p class="launch-config-warning">当前分配超过建议上限，可能导致 Windows 或游戏不稳定。</p>
+        }
+    </section>
+
+    <div class="launch-config-actions">
+        <button class="btn-outline" @onclick="ApplyRecommended">使用推荐配置</button>
+        <button class="btn-primary" @onclick="SaveAndApply">保存并应用</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSettingsChanged { get; set; }
+
+    private List<LaunchPresetService.LaunchPreset> Presets = new();
+    private LaunchPresetService.PresetType SelectedPreset = LaunchPresetService.PresetType.Balanced;
+    private int SystemMemory;
+    private int MaxRecommendedMemory;
+    private int MemorySliderMaximum = 4096;
+    private int OptimizedMemory = 2048;
+
+    private string SelectedPresetArgs =>
+        Presets.FirstOrDefault(preset => preset.Type == SelectedPreset)?.JvmArgs ?? "";
+
+    protected override void OnInitialized()
+    {
+        Presets = LaunchPresetService.GetPresets();
+        SystemMemory = LaunchPresetService.GetSystemMemoryMB();
+        MaxRecommendedMemory = LaunchPresetService.GetRecommendedMemoryLimit();
+        MemorySliderMaximum = Math.Max(2048, Math.Min(32768, SystemMemory));
+        OptimizedMemory = Math.Clamp(SettingsService.GetMaxMemory(), 512, MemorySliderMaximum);
+        SelectedPreset = LaunchPresetService.MatchPreset(SettingsService.GetCustomJvmArgs()).Type;
+    }
+
+    private void SelectPreset(LaunchPresetService.PresetType type)
+    {
+        SelectedPreset = type;
+    }
+
+    private void ApplyRecommended()
+    {
+        var preset = LaunchPresetService.GetRecommendedPreset();
+        SelectedPreset = preset.Type;
+        OptimizedMemory = Math.Clamp(preset.RecommendedMemory, 512, MaxRecommendedMemory);
+    }
+
+    private async Task SaveAndApply()
+    {
+        var selected = Presets.First(preset => preset.Type == SelectedPreset);
+        var validation = LaunchPresetService.ValidateMemorySettings(OptimizedMemory, selected);
+        if (!validation.valid)
+        {
+            await NotificationService.Warning(validation.message ?? "内存设置不可用", 4000);
+            return;
+        }
+
+        SettingsService.Update(settings =>
+        {
+            settings.MaxMemory = OptimizedMemory;
+            settings.CustomJvmArgs = selected.JvmArgs;
+        });
+        await OnSettingsChanged.InvokeAsync();
+        await NotificationService.Success("启动优化已保存，下次启动生效", 2500);
+    }
+
+    private static string FormatMemory(int memory) =>
+        memory >= 1024 ? $"{memory / 1024d:0.#} GB" : $"{memory} MB";
+}

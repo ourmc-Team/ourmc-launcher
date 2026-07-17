@@ -1,0 +1,241 @@
+@* 服务器管理页面组件 *@
+@using ourmclauncher.Models
+@inject ServerService ServerService
+
+<div class="page-modal page-servers @(IsClosing ? "closing" : "")">
+    <div class="modal-header">
+        <h2>服务器列表</h2>
+        <button class="btn-close-modal" @onclick="OnClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+    </div>
+    <div class="modal-body servers-body-scroll">
+        @if (ShowAddForm)
+        {
+            <div class="add-server-form">
+                <h3>@(IsEditing ? "编辑服务器" : "添加服务器")</h3>
+                <div class="form-group">
+                    <label>服务器名称</label>
+                    <input type="text" @bind="ServerName" placeholder="如: 我的服务器" />
+                </div>
+                <div class="form-group">
+                    <label>服务器地址</label>
+                    <input type="text" @bind="ServerAddress" placeholder="如: mc.example.com:25565" />
+                    <small style="color: #888; display: block; margin-top: 4px;">格式: IP:端口 或 域名:端口</small>
+                </div>
+                <div class="form-group">
+                    <label>版本（可选）</label>
+                    <input type="text" @bind="ServerVersion" placeholder="如: 1.20.1" />
+                </div>
+                <div class="form-group">
+                    <label>描述（可选）</label>
+                    <input type="text" @bind="ServerDescription" placeholder="服务器的简短描述" />
+                </div>
+                <div class="form-actions">
+                    <button class="btn-primary" @onclick="SaveServer">@(IsEditing ? "保存" : "添加")</button>
+                    <button class="btn-secondary" @onclick="CancelAdd">取消</button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="servers-actions">
+                <button class="btn-primary btn-sm" @onclick="OpenAddForm">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    添加服务器
+                </button>
+            </div>
+        }
+
+        @if (!ShowAddForm)
+        {
+            @if (Servers.Count == 0)
+            {
+                <p class="empty-text" style="text-align:center;margin-top:50px;">
+                    暂无服务器<br />
+                    <small style="color:#888;">点击"添加服务器"按钮添加常用服务器</small>
+                </p>
+            }
+            else
+            {
+                <div class="servers-list">
+                    @foreach (var server in Servers)
+                    {
+                        <div class="server-item">
+                            <div class="server-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;">
+                                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                                    <line x1="6" y1="6" x2="6.01" y2="6"/>
+                                    <line x1="6" y1="18" x2="6.01" y2="18"/>
+                                </svg>
+                            </div>
+                            <div class="server-info">
+                                <div class="server-name">@server.Name</div>
+                                <div class="server-address">@server.Address</div>
+                                @if (!string.IsNullOrEmpty(server.Version))
+                                {
+                                    <div class="server-version">版本: @server.Version</div>
+                                }
+                                @if (!string.IsNullOrEmpty(server.Description))
+                                {
+                                    <div class="server-description">@server.Description</div>
+                                }
+                            </div>
+                            <div class="server-actions">
+                                <button class="btn-primary btn-sm" @onclick="() => ConnectToServer(server)" title="连接">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                                    </svg>
+                                    连接
+                                </button>
+                                <button class="btn-outline btn-sm" @onclick="() => EditServer(server)" title="编辑">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                    </svg>
+                                </button>
+                                <button class="btn-danger btn-sm" @onclick="() => DeleteServer(server.Id)" title="删除">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                                        <polyline points="3,6 5,6 21,6"/>
+                                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback<string> OnConnectServer { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    public bool IsClosing { get; set; }
+
+    private List<ServerInfo> Servers { get; set; } = new();
+    private bool ShowAddForm { get; set; }
+    private bool IsEditing { get; set; }
+    private string EditingServerId { get; set; } = "";
+
+    private string ServerName { get; set; } = "";
+    private string ServerAddress { get; set; } = "";
+    private string ServerVersion { get; set; } = "";
+    private string ServerDescription { get; set; } = "";
+
+    protected override void OnInitialized()
+    {
+        LoadServers();
+    }
+
+    private void LoadServers()
+    {
+        Servers = ServerService.GetServers();
+    }
+
+    private void OpenAddForm()
+    {
+        IsEditing = false;
+        EditingServerId = "";
+        ServerName = "";
+        ServerAddress = "";
+        ServerVersion = "";
+        ServerDescription = "";
+        ShowAddForm = true;
+        StateHasChanged();
+    }
+
+    private void EditServer(ServerInfo server)
+    {
+        IsEditing = true;
+        EditingServerId = server.Id;
+        ServerName = server.Name;
+        ServerAddress = server.Address;
+        ServerVersion = server.Version;
+        ServerDescription = server.Description;
+        ShowAddForm = true;
+        StateHasChanged();
+    }
+
+    private void CancelAdd()
+    {
+        ShowAddForm = false;
+        IsEditing = false;
+        EditingServerId = "";
+        ServerName = "";
+        ServerAddress = "";
+        ServerVersion = "";
+        ServerDescription = "";
+        StateHasChanged();
+    }
+
+    private void SaveServer()
+    {
+        if (string.IsNullOrWhiteSpace(ServerAddress))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(ServerName))
+        {
+            ServerName = ServerAddress;
+        }
+
+        if (IsEditing)
+        {
+            var server = ServerService.GetServer(EditingServerId);
+            if (server != null)
+            {
+                server.Name = ServerName;
+                server.Address = ServerAddress;
+                server.Version = ServerVersion;
+                server.Description = ServerDescription;
+                ServerService.UpdateServer(server);
+            }
+        }
+        else
+        {
+            var newServer = new ServerInfo
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Name = ServerName,
+                Address = ServerAddress,
+                Version = ServerVersion,
+                Description = ServerDescription
+            };
+            ServerService.AddServer(newServer);
+        }
+
+        LoadServers();
+        CancelAdd();
+    }
+
+    private void DeleteServer(string serverId)
+    {
+        var result = System.Windows.Forms.MessageBox.Show(
+            "确定要删除此服务器吗？",
+            "确认删除",
+            System.Windows.Forms.MessageBoxButtons.YesNo,
+            System.Windows.Forms.MessageBoxIcon.Warning
+        );
+
+        if (result == System.Windows.Forms.DialogResult.Yes)
+        {
+            ServerService.RemoveServer(serverId);
+            LoadServers();
+        }
+    }
+
+    private async Task ConnectToServer(ServerInfo server)
+    {
+        await OnConnectServer.InvokeAsync(server.Address);
+    }
+}

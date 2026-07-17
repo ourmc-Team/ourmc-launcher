@@ -1,74 +1,99 @@
-@* 首页组件 *@
 @using ourmclauncher.Models
 
 <div class="home-page">
     <div class="sky-background"></div>
     <div class="center-logo">
-        <h1>OML</h1>
-        <p class="subtitle">我们的世界启动器 - OurMC</p>
+        <h1 class="mc-font">ourmc-launcher</h1>
     </div>
-    <div class="bottom-bar">
-        <div class="pill pill small" @onclick="OnQuickServer">
-            <span class="pill-icon">
-                <img src="star.png" style="width:20px;height:20px;filter:brightness(0) invert(1);" alt="star" />
-            </span>
-            <span class="pill-text">
-                <span class="pill-title">快捷启动</span>
-                <span class="pill-subtitle">-OurMC</span>
-            </span>
-        </div>
-        <div class="pill large">
+    <div class="bottom-bar home-launch-bar">
+        <div class="pill large home-launch-pill">
             <div class="large-inner">
-                <button class="action-item" @onclick="OnServerList" title="服务器">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="2" y="3" width="20" height="8" rx="1"/>
-                        <rect x="2" y="13" width="20" height="8" rx="1"/>
-                        <line x1="6" y1="6.5" x2="6.01" y2="6.5"/>
-                        <line x1="6" y1="16.5" x2="6.01" y2="16.5"/>
-                    </svg>
-                    <span>服务器</span>
-                </button>
-                <button class="action-item" @onclick="OnWorldList" title="世界">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="2" y1="12" x2="22" y2="12"/>
-                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                    </svg>
-                    <span>世界</span>
-                </button>
-                <button class="action-item" @onclick="OnMultiplayer" title="多人游戏">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                    <span>多人</span>
-                </button>
-                <button class="rocket-btn" @onclick="LaunchGame" disabled="@(Versions.Count == 0)" title="启动游戏">
+                <div class="home-version-summary">
+                    <span class="home-version-label">当前版本</span>
+                    <span class="home-version-name">@GetSelectedVersionLabel()</span>
+                </div>
+                <div class="bar-separator"></div>
+                <button class="rocket-btn" @onclick="ShowVersionPicker" title="选择并启动游戏">
                     <span class="rocket-icon">
-                        <img src="star.png" style="width:16px;height:16px;filter:brightness(0) invert(1);" alt="启动" />
+                        <img src="star.png" style="width:16px;height:16px;filter:brightness(0) invert(1);" alt="" />
                     </span>
                     <span class="rocket-text">启动游戏</span>
                 </button>
             </div>
         </div>
     </div>
+
+    @if (_showVersionPicker)
+    {
+        <div class="version-picker-overlay" @onclick="CloseVersionPicker">
+            <div class="version-picker-modal" @onclick:stopPropagation="true">
+                <div class="picker-header">
+                    <h3>选择版本</h3>
+                    <button class="picker-close-btn" @onclick="CloseVersionPicker" title="关闭">&times;</button>
+                </div>
+                <div class="picker-body">
+                    @if (Versions.Count == 0)
+                    {
+                        <div class="picker-empty">
+                            <p>还没有安装游戏版本</p>
+                            <button class="btn-primary btn-sm" @onclick="GoToDownload">前往下载</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="picker-list">
+                            @foreach (var version in Versions)
+                            {
+                                <button class="picker-item" @onclick="() => SelectAndLaunch(version.Name)">
+                                    <span class="picker-item-name">@version.Name</span>
+                                    <span class="picker-item-type">@(string.IsNullOrEmpty(version.Type) ? "原版" : version.Type)</span>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
     [Parameter] public List<GameVersion> Versions { get; set; } = new();
+    [Parameter] public string SelectedVersionId { get; set; } = "";
     [Parameter] public EventCallback<string> OnLaunchVersion { get; set; }
-    [Parameter] public EventCallback OnQuickServer { get; set; }
-    [Parameter] public EventCallback OnServerList { get; set; }
-    [Parameter] public EventCallback OnWorldList { get; set; }
-    [Parameter] public EventCallback OnMultiplayer { get; set; }
+    [Parameter] public EventCallback OnGoToDownload { get; set; }
 
-    private async Task LaunchGame()
+    private bool _showVersionPicker;
+
+    private string GetSelectedVersionLabel()
     {
-        if (Versions.Count > 0)
+        if (!string.IsNullOrWhiteSpace(SelectedVersionId) && Versions.Any(v => v.Name == SelectedVersionId))
         {
-            await OnLaunchVersion.InvokeAsync(Versions[0].Name);
+            return SelectedVersionId;
         }
+
+        return Versions.FirstOrDefault()?.Name ?? "未安装";
+    }
+
+    private void ShowVersionPicker()
+    {
+        _showVersionPicker = true;
+    }
+
+    private void CloseVersionPicker()
+    {
+        _showVersionPicker = false;
+    }
+
+    private async Task SelectAndLaunch(string versionName)
+    {
+        _showVersionPicker = false;
+        await OnLaunchVersion.InvokeAsync(versionName);
+    }
+
+    private async Task GoToDownload()
+    {
+        _showVersionPicker = false;
+        await OnGoToDownload.InvokeAsync();
     }
 }

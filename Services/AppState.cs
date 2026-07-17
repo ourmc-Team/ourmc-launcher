@@ -122,18 +122,18 @@ public class AppState
         set { _installLoaderType = value; NotifyStateChanged(); }
     }
 
+    private string _installLoaderVersion = "";
+    public string InstallLoaderVersion
+    {
+        get => _installLoaderVersion;
+        set { _installLoaderVersion = value; NotifyStateChanged(); }
+    }
+
     private string _downloadFilter = "release";
     public string DownloadFilter
     {
         get => _downloadFilter;
         set { _downloadFilter = value; NotifyStateChanged(); }
-    }
-
-    private string _versionSearchQuery = "";
-    public string VersionSearchQuery
-    {
-        get => _versionSearchQuery;
-        set { _versionSearchQuery = value; NotifyStateChanged(); }
     }
 
     private string _javaPath = "";
@@ -164,6 +164,41 @@ public class AppState
         set { _playerName = value; NotifyStateChanged(); }
     }
 
+    private int _backgroundIndex = 0;
+    public int BackgroundIndex
+    {
+        get => _backgroundIndex;
+        set { _backgroundIndex = value; NotifyStateChanged(); }
+    }
+
+    private bool _fullscreen = false;
+    public bool Fullscreen
+    {
+        get => _fullscreen;
+        set { _fullscreen = value; NotifyStateChanged(); }
+    }
+
+    private int _windowWidth = 854;
+    public int WindowWidth
+    {
+        get => _windowWidth;
+        set { _windowWidth = value; NotifyStateChanged(); }
+    }
+
+    private int _windowHeight = 480;
+    public int WindowHeight
+    {
+        get => _windowHeight;
+        set { _windowHeight = value; NotifyStateChanged(); }
+    }
+
+    private string _customJvmArgs = "";
+    public string CustomJvmArgs
+    {
+        get => _customJvmArgs;
+        set { _customJvmArgs = value; NotifyStateChanged(); }
+    }
+
     private bool _showAccountPopup;
     public bool ShowAccountPopup
     {
@@ -171,7 +206,28 @@ public class AppState
         set { _showAccountPopup = value; NotifyStateChanged(); }
     }
 
+    private string _selectedVersionId = "";
+    public string SelectedVersionId
+    {
+        get => _selectedVersionId;
+        set { _selectedVersionId = value; NotifyStateChanged(); }
+    }
+
     public event Action? OnChange;
+
+    private string _aiApiKey = "";
+    public string AIApiKey
+    {
+        get => _aiApiKey;
+        set { _aiApiKey = value; NotifyStateChanged(); }
+    }
+
+    private bool _showAIWelcome = true;
+    public bool ShowAIWelcome
+    {
+        get => _showAIWelcome;
+        set { _showAIWelcome = value; NotifyStateChanged(); }
+    }
 
     public void NotifyStateChanged() => OnChange?.Invoke();
 
@@ -198,5 +254,12 @@ public class AppState
         MaxMemory = settings.MaxMemory;
         GameDirectory = settings.GameDirectory;
         PlayerName = settings.PlayerName;
+        BackgroundIndex = settings.BackgroundIndex;
+        Fullscreen = settings.Fullscreen;
+        WindowWidth = settings.WindowWidth;
+        WindowHeight = settings.WindowHeight;
+        CustomJvmArgs = settings.CustomJvmArgs ?? "";
+        AIApiKey = settings.AIApiKey ?? "";
+        ShowAIWelcome = settings.ShowAIWelcome;
     }
 }

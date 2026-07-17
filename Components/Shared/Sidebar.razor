@@ -1,12 +1,13 @@
-@* 侧边栏导航组件 *@
-<div class="sidebar">
-    <button class="sidebar-btn @(ActiveTab == 0 ? "active" : "")" @onclick="() => OnTabChanged.InvokeAsync(0)" title="主页">
+@* 主导航只保留启动器的四个高频流程。 *@
+<nav class="sidebar" aria-label="主导航">
+    <button class="sidebar-btn @(ActiveTab == 0 ? "active" : "")" @onclick="() => OnTabChanged.InvokeAsync(0)" title="首页">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+            <polyline points="9,22 9,12 15,12 15,22"/>
         </svg>
-        <span>主页</span>
+        <span>首页</span>
     </button>
-    <button class="sidebar-btn @(ActiveTab == 1 ? "active" : "")" @onclick="() => OnTabChanged.InvokeAsync(1)" title="下载">
+    <button class="sidebar-btn @(ActiveTab == 1 ? "active" : "")" @onclick="() => OnTabChanged.InvokeAsync(1)" title="下载中心">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
             <polyline points="7,10 12,15 17,10"/>
@@ -14,37 +15,24 @@
         </svg>
         <span>下载</span>
     </button>
-    <button class="sidebar-btn @(ActiveTab == 3 ? "active" : "")" @onclick="() => OnTabChanged.InvokeAsync(3)" title="设置">
+    <button class="sidebar-btn @(ActiveTab == 2 ? "active" : "")" @onclick="() => OnTabChanged.InvokeAsync(2)" title="版本管理">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+            <polyline points="3.27,6.96 12,12.01 20.73,6.96"/>
+            <line x1="12" y1="22.08" x2="12" y2="12"/>
+        </svg>
+        <span>版本</span>
+    </button>
+    <button class="sidebar-btn sidebar-btn-bottom @(ActiveTab == 3 ? "active" : "")" @onclick="() => OnTabChanged.InvokeAsync(3)" title="设置">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001.51-1V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.12.61.66 1.05 1.28 1.05H21a2 2 0 010 4h-.09A1.65 1.65 0 0019.4 15z"/>
         </svg>
         <span>设置</span>
     </button>
-    <button class="sidebar-btn sidebar-btn-bottom @(ActiveTab == 2 ? "active" : "")" @onclick="() => OnTabChanged.InvokeAsync(2)" title="账户">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-        </svg>
-        <span>账户</span>
-    </button>
-    <button class="sidebar-btn" @onclick="OpenOfficialSite" title="官网">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="2" y1="12" x2="22" y2="12"/>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-        </svg>
-        <span>官网</span>
-    </button>
-</div>
+</nav>
 
 @code {
     [Parameter] public int ActiveTab { get; set; }
     [Parameter] public EventCallback<int> OnTabChanged { get; set; }
-
-    private void OpenOfficialSite()
-    {
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://www.our-mc.cn") { UseShellExecute = true }); }
-        catch { }
-    }
 }

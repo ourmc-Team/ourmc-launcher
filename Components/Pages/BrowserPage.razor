@@ -1,0 +1,191 @@
+@* 内置浏览器页面组件 *@
+@implements IDisposable
+
+<div class="page-modal page-browser @(IsClosing ? "closing" : "")">
+    <div class="modal-header" style="padding: 12px 16px; display: flex; align-items: center; gap: 8px;">
+        <button class="btn-outline btn-sm" @onclick="GoBack" disabled="@(CanGoBack || string.IsNullOrEmpty(CurrentUrl))" title="后退">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                <polyline points="15,18 9,12 15,6"/>
+            </svg>
+        </button>
+        <button class="btn-outline btn-sm" @onclick="GoForward" disabled="@(CanGoForward || string.IsNullOrEmpty(CurrentUrl))" title="前进">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                <polyline points="9,18 15,12 9,6"/>
+            </svg>
+        </button>
+        <button class="btn-outline btn-sm" @onclick="Refresh" title="刷新">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                <polyline points="23,4 23,10 17,10"/>
+                <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+            </svg>
+        </button>
+        <input type="text" @bind="CurrentUrl" @bind:event="oninput" @onkeypress="HandleUrlKeyPress" class="input-flex" style="flex: 1; margin: 0 8px;" placeholder="输入网址..." />
+        <button class="btn-primary btn-sm" @onclick="Navigate" title="访问">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                <polyline points="9,18 15,12 9,6"/>
+            </svg>
+        </button>
+        <button class="btn-close-modal" @onclick="OnClose" style="margin-left: 8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+    </div>
+    <div class="modal-body" style="padding: 0; overflow: hidden;">
+        @if (IsLoading)
+        {
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 16px;">
+                <div style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #4CAF50; border-radius: 50%; animation: browser-spin 1s linear infinite;"></div>
+                <p style="color: #b0b0b0;">加载中...</p>
+            </div>
+        }
+        else if (ShowError)
+        {
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 16px; padding: 24px; text-align: center;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 64px; height: 64px; color: #ff6b6b;">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <div>
+                    <h3 style="color: #e0e0e0; margin-bottom: 8px;">无法加载网页</h3>
+                    <p style="color: #b0b0b0; margin-bottom: 16px;">iframe 可能被网站的安全策略阻止</p>
+                    <button class="btn-primary" @onclick="OpenInExternalBrowser">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">
+                            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                            <polyline points="15,3 21,3 21,9"/>
+                            <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                        在系统浏览器中打开
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <iframe src="@CurrentUrl"
+                    style="width: 100%; height: 100%; border: none; background: white;"
+                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                    onload="onIframeLoad()"
+                    onerror="onIframeError()">
+            </iframe>
+        }
+    </div>
+</div>
+
+<script>
+    window.onIframeLoad = function() {
+        // iframe加载完成
+    };
+
+    window.onIframeError = function() {
+        // iframe加载错误
+    };
+</script>
+
+@code {
+    [Parameter] public string InitialUrl { get; set; } = "https://www.our-mc.cn";
+    [Parameter] public EventCallback OnClose { get; set; }
+    public bool IsClosing { get; set; }
+
+    private string CurrentUrl { get; set; } = "";
+    private bool IsLoading { get; set; } = true;
+    private bool ShowError { get; set; } = false;
+    private bool CanGoBack { get; set; } = false;
+    private bool CanGoForward { get; set; } = false;
+
+    protected override void OnInitialized()
+    {
+        CurrentUrl = InitialUrl;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Task.Delay(100);
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Navigate()
+    {
+        if (!string.IsNullOrWhiteSpace(CurrentUrl))
+        {
+            if (!CurrentUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !CurrentUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                CurrentUrl = "https://" + CurrentUrl;
+            }
+
+            IsLoading = true;
+            ShowError = false;
+            StateHasChanged();
+
+            // 模拟加载
+            Task.Run(async () =>
+            {
+                await Task.Delay(1000);
+                await InvokeAsync(() =>
+                {
+                    IsLoading = false;
+                    StateHasChanged();
+                });
+            });
+        }
+    }
+
+    private void GoBack()
+    {
+        // iframe不支持历史记录导航
+    }
+
+    private void GoForward()
+    {
+        // iframe不支持历史记录导航
+    }
+
+    private void Refresh()
+    {
+        Navigate();
+    }
+
+    private void HandleUrlProgress(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            Navigate();
+        }
+    }
+
+    private void HandleUrlKeyPress(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            Navigate();
+        }
+    }
+
+    private void OpenInExternalBrowser()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = CurrentUrl,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"打开浏览器失败: {ex.Message}");
+        }
+    }
+
+    public void Dispose()
+    {
+        // 清理资源
+    }
+}

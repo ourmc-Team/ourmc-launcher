@@ -1,42 +1,116 @@
-@* 设置页面组件 *@
-<div class="page-modal page-settings @(IsClosing ? "closing" : "")">
+<div class="page-modal page-settings">
     <div class="modal-header">
         <div class="panel-title-bar">
             <span class="panel-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"/>
-                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001.51-1V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.12.61.66 1.05 1.28 1.05H21a2 2 0 010 4h-.09A1.65 1.65 0 0019.4 15z"/>
                 </svg>
             </span>
-            <h2>设置</h2>
+            <div>
+                <h2>设置</h2>
+                <p class="hub-subtitle">启动环境、游戏窗口与账户</p>
+            </div>
         </div>
     </div>
-    <div class="modal-body">
-        <div class="settings-group">
-            <h3>Java 设置</h3>
+
+    <div class="modal-body settings-body-scroll">
+        <section class="settings-group">
+            <h3>运行环境</h3>
             <div class="form-group">
                 <label>Java 路径</label>
                 <div class="input-row">
-                    <input type="text" class="input-flex" @bind="JavaPath" @bind:event="oninput" placeholder="javaw.exe 的完整路径" />
+                    <input type="text" class="input-flex" @bind="JavaPath" @bind:event="oninput" @bind:after="NotifyJavaPathChanged" placeholder="javaw.exe 的完整路径" />
                     <button class="btn-outline btn-sm" @onclick="OnAutoDetectJava">自动检测</button>
                 </div>
             </div>
             <div class="form-group">
-                <label>最大内存 (MB)</label>
-                <input type="number" @bind="MaxMemory" @bind:event="oninput" min="512" max="32768" step="256" />
+                <div class="setting-label-row">
+                    <label>最大内存</label>
+                    <output>@MaxMemory MB</output>
+                </div>
+                <input class="settings-range" type="range" @bind="MaxMemory" @bind:event="oninput" @bind:after="NotifyMaxMemoryChanged" min="512" max="32768" step="256" />
             </div>
-        </div>
-        <div class="settings-group">
-            <h3>游戏设置</h3>
             <div class="form-group">
                 <label>游戏目录</label>
-                <input type="text" @bind="GameDirectory" @bind:event="oninput" placeholder=".minecraft 目录路径" />
+                <input type="text" @bind="GameDirectory" @bind:event="oninput" @bind:after="NotifyGameDirectoryChanged" placeholder="留空时使用默认 .minecraft 目录" />
             </div>
+        </section>
+
+        <section class="settings-group">
+            <h3>游戏启动</h3>
             <div class="form-group">
-                <label>玩家名称（离线模式）</label>
-                <input type="text" @bind="PlayerName" @bind:event="oninput" placeholder="Player" />
+                <label>离线玩家名称</label>
+                <input type="text" @bind="PlayerName" @bind:event="oninput" @bind:after="NotifyPlayerNameChanged" maxlength="16" />
             </div>
-        </div>
+            <label class="setting-toggle-row">
+                <span>
+                    <strong>全屏启动</strong>
+                    <small>启动后直接进入全屏模式</small>
+                </span>
+                <input type="checkbox" @bind="Fullscreen" @bind:after="NotifyFullscreenChanged" />
+            </label>
+            <div class="setting-grid-two">
+                <div class="form-group">
+                    <label>窗口宽度</label>
+                    <input type="number" @bind="WindowWidth" @bind:event="oninput" @bind:after="NotifyWindowSizeChanged" min="640" max="3840" step="10" disabled="@Fullscreen" />
+                </div>
+                <div class="form-group">
+                    <label>窗口高度</label>
+                    <input type="number" @bind="WindowHeight" @bind:event="oninput" @bind:after="NotifyWindowSizeChanged" min="480" max="2160" step="10" disabled="@Fullscreen" />
+                </div>
+            </div>
+        </section>
+
+        <section class="settings-group">
+            <h3>背景</h3>
+            <div class="bg-options">
+                @for (var i = 0; i <= 6; i++)
+                {
+                    var index = i;
+                    var name = i == 0 ? "默认" : $"背景 {i}";
+                    <button class="bg-option @(BackgroundIndex == i ? "bg-option-active" : "")"
+                            @onclick="() => SelectBackground(index)" title="@name">
+                        <img src="@(i == 0 ? "back.jpg" : $"back{i}.jpg")" alt="" onerror="this.style.display='none'" />
+                        <span>@name</span>
+                    </button>
+                }
+            </div>
+        </section>
+
+        <section class="settings-group">
+            <h3>账户与皮肤</h3>
+            <div class="settings-account-row">
+                <div class="settings-account-identity">
+                    <img src="@AvatarUrl" alt="" onerror="this.style.visibility='hidden'" />
+                    <span>
+                        <strong>@(IsLoggedIn ? Nickname : "皮肤站未登录")</strong>
+                        <small>@(IsLoggedIn ? UserEmail : "登录后可同步皮肤站身份")</small>
+                    </span>
+                </div>
+                @if (IsLoggedIn)
+                {
+                    <button class="btn-outline btn-sm" @onclick="OnLogout">退出</button>
+                }
+                else
+                {
+                    <button class="btn-primary btn-sm" @onclick="OnLogin">登录</button>
+                }
+            </div>
+            <div class="settings-link-actions">
+                <button class="btn-outline" @onclick="OnManageAccounts">管理游戏账户</button>
+                <button class="btn-outline" @onclick="OnManageSkin">打开皮肤站</button>
+            </div>
+        </section>
+
+        <section class="settings-group">
+            <h3>关于</h3>
+            <div class="about-launcher-row">
+                <span><strong>ourmc-launcher</strong><small>.NET 8 / Windows</small></span>
+                <button class="btn-outline btn-sm" @onclick="OnOpenOfficialSite">访问官网</button>
+            </div>
+        </section>
+
         <div class="settings-actions">
             <button class="btn-primary" @onclick="OnSaveSettings">保存设置</button>
         </div>
@@ -48,8 +122,40 @@
     [Parameter] public int MaxMemory { get; set; } = 2048;
     [Parameter] public string GameDirectory { get; set; } = "";
     [Parameter] public string PlayerName { get; set; } = "Player";
-    [Parameter] public bool IsClosing { get; set; }
+    [Parameter] public int BackgroundIndex { get; set; }
+    [Parameter] public bool Fullscreen { get; set; }
+    [Parameter] public int WindowWidth { get; set; } = 854;
+    [Parameter] public int WindowHeight { get; set; } = 480;
+    [Parameter] public bool IsLoggedIn { get; set; }
+    [Parameter] public string Nickname { get; set; } = "";
+    [Parameter] public string UserEmail { get; set; } = "";
+    [Parameter] public string AvatarUrl { get; set; } = "";
+
+    [Parameter] public EventCallback<string> JavaPathChanged { get; set; }
+    [Parameter] public EventCallback<int> MaxMemoryChanged { get; set; }
+    [Parameter] public EventCallback<string> GameDirectoryChanged { get; set; }
+    [Parameter] public EventCallback<string> PlayerNameChanged { get; set; }
+    [Parameter] public EventCallback<bool> FullscreenChanged { get; set; }
+    [Parameter] public EventCallback<(int width, int height)> WindowSizeChanged { get; set; }
     [Parameter] public EventCallback OnAutoDetectJava { get; set; }
     [Parameter] public EventCallback OnSaveSettings { get; set; }
-    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<int> OnBackgroundChanged { get; set; }
+    [Parameter] public EventCallback OnLogin { get; set; }
+    [Parameter] public EventCallback OnLogout { get; set; }
+    [Parameter] public EventCallback OnManageSkin { get; set; }
+    [Parameter] public EventCallback OnManageAccounts { get; set; }
+    [Parameter] public EventCallback OnOpenOfficialSite { get; set; }
+
+    private Task NotifyJavaPathChanged() => JavaPathChanged.InvokeAsync(JavaPath);
+    private Task NotifyMaxMemoryChanged() => MaxMemoryChanged.InvokeAsync(MaxMemory);
+    private Task NotifyGameDirectoryChanged() => GameDirectoryChanged.InvokeAsync(GameDirectory);
+    private Task NotifyPlayerNameChanged() => PlayerNameChanged.InvokeAsync(PlayerName);
+    private Task NotifyFullscreenChanged() => FullscreenChanged.InvokeAsync(Fullscreen);
+    private Task NotifyWindowSizeChanged() => WindowSizeChanged.InvokeAsync((WindowWidth, WindowHeight));
+
+    private async Task SelectBackground(int index)
+    {
+        BackgroundIndex = index;
+        await OnBackgroundChanged.InvokeAsync(index);
+    }
 }

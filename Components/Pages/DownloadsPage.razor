@@ -3,7 +3,7 @@
 
 @if (ShowDownloadSetup)
 {
-    <div class="page-modal page-download-setup @(IsClosing ? "closing" : "")">
+    <div class="page-modal page-download-setup">
         <div class="modal-header">
             <div class="panel-title-bar">
                 <span class="panel-icon">
@@ -19,55 +19,9 @@
         <div class="modal-body">
             <div class="form-group">
                 <label>版本名称</label>
-                <input type="text" @bind="InstallVersionName" placeholder="输入要安装的版本号" />
+                <input type="text" @bind="InstallVersionName" />
             </div>
-            <div class="form-group">
-                <label>模组加载器</label>
-                <div class="loader-options">
-                    @if (InstallLoaderType == "vanilla")
-                    {
-                        <label class="loader-option">
-                            <input type="radio" name="loaderType" @onchange="OnVanillaSelected" checked="checked" />
-                            <span>原版</span>
-                        </label>
-                    }
-                    else
-                    {
-                        <label class="loader-option">
-                            <input type="radio" name="loaderType" @onchange="OnVanillaSelected" />
-                            <span>原版</span>
-                        </label>
-                    }
-                    @if (InstallLoaderType == "forge")
-                    {
-                        <label class="loader-option">
-                            <input type="radio" name="loaderType" @onchange="OnForgeSelected" checked="checked" />
-                            <span>Forge</span>
-                        </label>
-                    }
-                    else
-                    {
-                        <label class="loader-option">
-                            <input type="radio" name="loaderType" @onchange="OnForgeSelected" />
-                            <span>Forge</span>
-                        </label>
-                    }
-                    @if (InstallLoaderType == "fabric")
-                    {
-                        <label class="loader-option">
-                            <input type="radio" name="loaderType" @onchange="OnFabricSelected" checked="checked" />
-                            <span>Fabric</span>
-                        </label>
-                    }
-                    else
-                    {
-                        <label class="loader-option">
-                            <input type="radio" name="loaderType" @onchange="OnFabricSelected" />
-                            <span>Fabric</span>
-                        </label>
-                    }
-                </div>
-            </div>
+            <p class="form-hint">当前安装原版游戏。模组可在下载中心的“模组”页安装到已有版本。</p>
             <div class="setup-actions">
                 <button class="btn-primary" @onclick="OnStartInstall">开始安装</button>
                 <button class="btn-secondary" @onclick="OnCancelInstall">取消</button>
@@ -77,7 +31,7 @@
 }
 else
 {
-    <div class="page-modal page-download @(IsClosing ? "closing" : "")">
+    <div class="page-modal page-download">
         <div class="modal-header">
             <div class="panel-title-bar">
                 <span class="panel-icon">
@@ -90,13 +44,13 @@ else
                 <h2>下载游戏</h2>
             </div>
         </div>
-        <div class="modal-body">
+        <div class="modal-body download-body-scroll">
             <div class="download-search">
-                <input type="text" @bind="VersionSearchQuery" @bind:event="oninput" placeholder="搜索版本..." />
+                <input type="text" @bind="searchQuery" @bind:event="oninput" placeholder="搜索版本..." />
             </div>
             <div class="download-tabs">
-                <button class="download-tab @(DownloadFilter == "release" ? "download-tab-active" : "")" @onclick='() => OnFilterChanged.InvokeAsync("release")'>正式版</button>
-                <button class="download-tab @(DownloadFilter == "snapshot" ? "download-tab-active" : "")" @onclick='() => OnFilterChanged.InvokeAsync("snapshot")'>快照</button>
+                <button class="download-tab @(DownloadFilter == "release" ? "download-tab-active" : "")" @onclick="HandleReleaseClick">正式版</button>
+                <button class="download-tab @(DownloadFilter == "snapshot" ? "download-tab-active" : "")" @onclick="HandleSnapshotClick">快照</button>
             </div>
             @if (IsDownloading)
             {
@@ -116,24 +70,44 @@ else
                 {
                     var filtered = RemoteVersions
                         .Where(v => DownloadFilter == "release" ? v.Type == "release" : v.Type != "release")
-                        .Where(v => string.IsNullOrEmpty(VersionSearchQuery) || v.Id.Contains(VersionSearchQuery, StringComparison.OrdinalIgnoreCase))
+                        .Where(v => string.IsNullOrEmpty(searchQuery) || v.Id.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
                         .ToList();
-                    @foreach (var rv in filtered)
+
+                    // Debug output
+                    if (System.Diagnostics.Debugger.IsAttached)
                     {
-                        <div class="download-item">
-                            <div class="download-version-info">
-                                <div class="download-version-name">@rv.Id</div>
-                                <div class="download-version-type">@(rv.Type == "release" ? "正式版" : "快照")</div>
+                        System.Diagnostics.Debug.WriteLine($"Filter: {DownloadFilter}, Search: {searchQuery}, Total: {RemoteVersions.Count}, Filtered: {filtered.Count}");
+                        foreach (var v in RemoteVersions.Take(3))
+                        {
+                            System.Diagnostics.Debug.WriteLine($"  Version: {v.Id}, Type: {v.Type}");
+                        }
+                    }
+
+                    if (filtered.Count == 0)
+                    {
+                        <p style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">
+                            @(DownloadFilter == "release" ? "没有找到正式版版本" : "没有找到快照版本")
+                        </p>
+                    }
+                    else
+                    {
+                        @foreach (var rv in filtered)
+                        {
+                            <div class="download-item">
+                                <div class="download-version-info">
+                                    <div class="download-version-name">@rv.Id</div>
+                                    <div class="download-version-type">@(rv.Type == "release" ? "正式版" : "快照")</div>
+                                </div>
+                                @if (InstalledVersions.Any(v => v.Name == rv.Id))
+                                {
+                                    <span class="badge-installed">已安装</span>
+                                }
+                                else
+                                {
+                                    <button class="btn-install" @onclick="() => OnInstall.InvokeAsync(rv.Id)">安装</button>
+                                }
                             </div>
-                            @if (InstalledVersions.Any(v => v.Name == rv.Id))
-                            {
-                                <span class="badge-installed">已安装</span>
-                            }
-                            else
-                            {
-                                <button class="btn-install" @onclick="() => OnInstall.InvokeAsync(rv.Id)">安装</button>
-                            }
-                        </div>
+                        }
                     }
                 }
             </div>
@@ -150,29 +124,24 @@ else
     [Parameter] public string DownloadStatus { get; set; } = "";
     [Parameter] public bool ShowDownloadSetup { get; set; }
     [Parameter] public string InstallVersionName { get; set; } = "";
-    [Parameter] public string InstallLoaderType { get; set; } = "vanilla";
     [Parameter] public string DownloadFilter { get; set; } = "release";
-    [Parameter] public string VersionSearchQuery { get; set; } = "";
-    [Parameter] public bool IsClosing { get; set; }
-    [Parameter] public EventCallback<string> OnSearchQueryChanged { get; set; }
     [Parameter] public EventCallback<string> OnFilterChanged { get; set; }
     [Parameter] public EventCallback<string> OnInstall { get; set; }
     [Parameter] public EventCallback OnCancelInstall { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnStartInstall { get; set; }
 
-    private void OnVanillaSelected(ChangeEventArgs e)
+    private string searchQuery = "";
+
+    private void HandleReleaseClick()
     {
-        InstallLoaderType = "vanilla";
+        System.Diagnostics.Debug.WriteLine("Release button clicked");
+        OnFilterChanged.InvokeAsync("release");
     }
 
-    private void OnForgeSelected(ChangeEventArgs e)
+    private void HandleSnapshotClick()
     {
-        InstallLoaderType = "forge";
-    }
-
-    private void OnFabricSelected(ChangeEventArgs e)
-    {
-        InstallLoaderType = "fabric";
+        System.Diagnostics.Debug.WriteLine("Snapshot button clicked");
+        OnFilterChanged.InvokeAsync("snapshot");
     }
 }

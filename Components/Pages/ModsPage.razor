@@ -1,0 +1,588 @@
+@* 模组管理页面组件 *@
+@using ourmclauncher.Models
+@using ourmclauncher.Services
+@inject ModService ModService
+@inject VersionService VersionService
+@inject ModRepositoryService ModRepositoryService
+
+<div class="page-modal page-mods @(IsClosing ? "closing" : "")">
+    <div class="modal-header">
+        <div class="panel-title-bar">
+            <span class="panel-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27,6.96 12,12.01 20.73,6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+            </span>
+            <h2>模组管理</h2>
+        </div>
+        <button class="btn-close-modal" @onclick="OnClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="mods-tabs">
+        <button class="mods-tab @(ActiveTab == "installed" ? "active" : "")" @onclick="@(() => SwitchTab("installed"))">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+            已安装
+        </button>
+        <button class="mods-tab @(ActiveTab == "search" ? "active" : "")" @onclick="@(() => SwitchTab("search"))">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            搜索Mod
+        </button>
+    </div>
+
+    <div class="modal-body mods-body-scroll">
+        @if (ActiveTab == "installed")
+        {
+            <div class="mods-controls">
+                <div class="mods-version-selector">
+                    <label>选择版本：</label>
+                    @if (Versions.Count == 0)
+                    {
+                        <span class="empty-text">无可用版本</span>
+                    }
+                    else
+                    {
+                        <select @bind="SelectedVersionName" @bind:after="LoadMods" class="input-flex">
+                            @foreach (var v in Versions.Where(v => ModService.SupportsMods(v.Name)))
+                            {
+                                <option value="@v.Name">@v.Name (@v.Type)</option>
+                            }
+                        </select>
+                    }
+                </div>
+                <div class="mods-actions">
+                    @if (!string.IsNullOrEmpty(SelectedVersionName))
+                    {
+                        <button class="btn-primary btn-sm" @onclick="OpenFilePicker">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">
+                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                <polyline points="17,8 12,3 7,8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            安装模组
+                        </button>
+                        <button class="btn-outline btn-sm" @onclick="RefreshMods" disabled="@IsLoading">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">
+                                <polyline points="23,4 23,10 17,10"/>
+                                <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+                            </svg>
+                            刷新
+                        </button>
+                        <button class="btn-outline btn-sm" @onclick="CheckConflicts">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                <line x1="12" y1="9" x2="12" y2="13"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                            检测冲突
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @if (string.IsNullOrEmpty(SelectedVersionName))
+            {
+                <p class="empty-text" style="text-align:center;margin-top:50px;">
+                    请选择一个支持模组的版本
+                </p>
+            }
+            else if (IsLoading)
+            {
+                <p class="loading" style="text-align:center;margin-top:50px;">
+                    加载模组列表...
+                </p>
+            }
+            else if (Mods.Count == 0)
+            {
+                <p class="empty-text" style="text-align:center;margin-top:50px;">
+                    该版本暂无模组<br />
+                    <small style="color:#888;">点击"安装模组"按钮添加模组</small>
+                </p>
+            }
+            else
+            {
+                <div class="mods-list">
+                    @foreach (var mod in Mods)
+                    {
+                        <div class="mod-item @(mod.IsEnabled ? "" : "mod-disabled")">
+                            <div class="mod-icon">
+                                @if (!string.IsNullOrEmpty(mod.Icon))
+                                {
+                                    <img src="@mod.Icon" alt="@mod.DisplayName" style="width:32px;height:32px;border-radius:4px;" />
+                                }
+                                else
+                                {
+                                    <span style="font-size:24px;">📦</span>
+                                }
+                            </div>
+                            <div class="mod-info">
+                                <div class="mod-name">@mod.DisplayName</div>
+                                <div class="mod-details">
+                                    <span class="mod-version">v@mod.Version</span>
+                                    @if (!string.IsNullOrEmpty(mod.Author))
+                                    {
+                                        <span class="mod-author">by @mod.Author</span>
+                                    }
+                                    <span class="mod-size">@ModService.FormatFileSize(mod.FileSize)</span>
+                                </div>
+                                @if (!string.IsNullOrEmpty(mod.Description))
+                                {
+                                    <div class="mod-description">@mod.Description</div>
+                                }
+                            </div>
+                            <div class="mod-actions">
+                                @if (mod.IsEnabled)
+                                {
+                                    <button class="btn-outline btn-sm" @onclick="() => DisableMod(mod.FileName)" title="禁用">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                                            <line x1="18" y1="6" x2="6" y2="18"/>
+                                            <line x1="6" y1="6" x2="18" y2="18"/>
+                                        </svg>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn-outline btn-sm" @onclick="() => EnableMod(mod.FileName)" title="启用">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                                            <polyline points="20,6 9,17 4,12"/>
+                                        </svg>
+                                    </button>
+                                }
+                                <button class="btn-danger btn-sm" @onclick="() => DeleteMod(mod.FileName, mod.IsEnabled)" title="删除">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                                        <polyline points="3,6 5,6 21,6"/>
+                                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else if (ActiveTab == "search")
+        {
+            <div class="mods-search-section">
+                <div class="search-controls">
+                    <input type="text" class="search-input" @bind="searchQuery" @bind:event="oninput" placeholder="搜索Modrinth模组..." />
+                    <button class="btn-primary btn-sm" @onclick="SearchMods" disabled="@IsSearching">
+                        @if (IsSearching)
+                        {
+                            <span>搜索中...</span>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">
+                                <circle cx="11" cy="11" r="8"/>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                            <span>搜索</span>
+                        }
+                    </button>
+                </div>
+
+                @if (IsSearching)
+                {
+                    <p class="loading" style="text-align:center;margin-top:50px;">
+                        搜索中...
+                    </p>
+                }
+                else if (SearchResults.Count == 0)
+                {
+                    <p class="empty-text" style="text-align:center;margin-top:50px;">
+                        @if (string.IsNullOrEmpty(searchQuery))
+                        {
+                            <span>输入关键词搜索Modrinth模组</span>
+                        }
+                        else
+                        {
+                            <span>未找到匹配的模组</span>
+                        }
+                    </p>
+                }
+                else
+                {
+                    <div class="mods-search-results">
+                        @foreach (var mod in SearchResults)
+                        {
+                            <div class="mod-search-result" @onclick="() => ShowModDetails(mod)">
+                                <div class="mod-result-icon">
+                                    @if (!string.IsNullOrEmpty(mod.IconUrl))
+                                    {
+                                        <img src="@mod.IconUrl" alt="@mod.Name" style="width:48px;height:48px;border-radius:8px;" />
+                                    }
+                                    else
+                                    {
+                                        <span style="font-size:32px;">📦</span>
+                                    }
+                                </div>
+                                <div class="mod-result-info">
+                                    <div class="mod-result-name">@mod.Name</div>
+                                    @if (!string.IsNullOrEmpty(mod.Description))
+                                    {
+                                        <div class="mod-result-description">@mod.Description</div>
+                                    }
+                                    <div class="mod-result-details">
+                                        <span class="mod-result-author">by @mod.Author</span>
+                                        <span class="mod-result-downloads">@mod.DownloadCount 下载</span>
+                                        <span class="mod-result-source">@mod.Source</span>
+                                    </div>
+                                </div>
+                                <div class="mod-result-actions">
+                                    <button class="btn-primary btn-sm" @onclick="() => DownloadMod(mod)" title="下载">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                            <polyline points="7,10 12,15 17,10"/>
+                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                        </svg>
+                                    </button>
+                                    <a href="@mod.ProjectUrl" target="_blank" class="btn-outline btn-sm" title="查看详情">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                            <polyline points="15,3 21,3 21,9"/>
+                                            <line x1="10" y1="14" x2="21" y2="3"/>
+                                        </svg>
+                                    </a>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="mods-list">
+                @foreach (var mod in Mods)
+                {
+                    <div class="mod-item @(mod.IsEnabled ? "" : "mod-disabled")">
+                        <div class="mod-icon">
+                            @if (!string.IsNullOrEmpty(mod.Icon))
+                            {
+                                <img src="@mod.Icon" alt="@mod.DisplayName" style="width:32px;height:32px;border-radius:4px;" />
+                            }
+                            else
+                            {
+                                <span style="font-size:24px;">📦</span>
+                            }
+                        </div>
+                        <div class="mod-info">
+                            <div class="mod-name">@mod.DisplayName</div>
+                            <div class="mod-details">
+                                <span class="mod-version">v@mod.Version</span>
+                                @if (!string.IsNullOrEmpty(mod.Author))
+                                {
+                                    <span class="mod-author">by @mod.Author</span>
+                                }
+                                <span class="mod-size">@ModService.FormatFileSize(mod.FileSize)</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(mod.Description))
+                            {
+                                <div class="mod-description">@mod.Description</div>
+                            }
+                        </div>
+                        <div class="mod-actions">
+                            @if (mod.IsEnabled)
+                            {
+                                <button class="btn-outline btn-sm" @onclick="() => DisableMod(mod.FileName)" title="禁用">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                                        <line x1="18" y1="6" x2="6" y2="18"/>
+                                        <line x1="6" y1="6" x2="18" y2="18"/>
+                                    </svg>
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn-outline btn-sm" @onclick="() => EnableMod(mod.FileName)" title="启用">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                                        <polyline points="20,6 9,17 4,12"/>
+                                    </svg>
+                                </button>
+                            }
+                            <button class="btn-danger btn-sm" @onclick="() => DeleteMod(mod.FileName, mod.IsEnabled)" title="删除">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+                                    <polyline points="3,6 5,6 21,6"/>
+                                    <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<GameVersion> Versions { get; set; } = new();
+    [Parameter] public EventCallback OnClose { get; set; }
+    public bool IsClosing { get; set; }
+
+    private List<ModInfo> Mods { get; set; } = new();
+    private string SelectedVersionName { get; set; } = "";
+    private bool IsLoading { get; set; }
+
+    // 搜索功能相关
+    private string ActiveTab { get; set; } = "installed";
+    private string searchQuery { get; set; } = "";
+    private bool IsSearching { get; set; }
+    private List<ModRepositoryService.ModSearchResult> SearchResults { get; set; } = new();
+
+    protected override void OnInitialized()
+    {
+        // 自动选择第一个支持模组的版本
+        var firstModVersion = Versions.FirstOrDefault(v => ModService.SupportsMods(v.Name));
+        if (firstModVersion != null)
+        {
+            SelectedVersionName = firstModVersion.Name;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        // 如果当前选中的版本不在列表中，重新选择
+        if (!string.IsNullOrEmpty(SelectedVersionName) && !Versions.Any(v => v.Name == SelectedVersionName))
+        {
+            var firstModVersion = Versions.FirstOrDefault(v => ModService.SupportsMods(v.Name));
+            SelectedVersionName = firstModVersion?.Name ?? "";
+        }
+    }
+
+    private void LoadMods()
+    {
+        if (string.IsNullOrEmpty(SelectedVersionName))
+        {
+            Mods.Clear();
+            return;
+        }
+
+        IsLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            Mods = ModService.GetInstalledMods(SelectedVersionName);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"加载模组失败: {ex.Message}");
+            Mods.Clear();
+        }
+
+        IsLoading = false;
+        StateHasChanged();
+    }
+
+    private void RefreshMods()
+    {
+        LoadMods();
+    }
+
+    private async Task OpenFilePicker()
+    {
+        if (string.IsNullOrEmpty(SelectedVersionName))
+            return;
+
+        try
+        {
+            // 使用 Windows 文件选择器
+            var openDialog = new System.Windows.Forms.OpenFileDialog
+            {
+                Title = "选择模组文件",
+                Filter = "Minecraft 模组文件 (*.jar)|*.jar|所有文件 (*.*)|*.*",
+                Multiselect = false
+            };
+
+            if (openDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                var filePath = openDialog.FileName;
+                var success = await ModService.InstallModAsync(SelectedVersionName, filePath);
+
+                if (success)
+                {
+                    LoadMods();
+                }
+                else
+                {
+                    System.Windows.Forms.MessageBox.Show("安装模组失败", "错误", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"打开文件选择器失败: {ex.Message}");
+        }
+    }
+
+    private void DisableMod(string fileName)
+    {
+        if (string.IsNullOrEmpty(SelectedVersionName))
+            return;
+
+        if (ModService.DisableMod(SelectedVersionName, fileName))
+        {
+            LoadMods();
+        }
+    }
+
+    private void EnableMod(string fileName)
+    {
+        if (string.IsNullOrEmpty(SelectedVersionName))
+            return;
+
+        if (ModService.EnableMod(SelectedVersionName, fileName))
+        {
+            LoadMods();
+        }
+    }
+
+    private void DeleteMod(string fileName, bool isEnabled)
+    {
+        if (string.IsNullOrEmpty(SelectedVersionName))
+            return;
+
+        var result = System.Windows.Forms.MessageBox.Show(
+            $"确定要删除模组 {fileName} 吗？此操作不可撤销。",
+            "确认删除",
+            System.Windows.Forms.MessageBoxButtons.YesNo,
+            System.Windows.Forms.MessageBoxIcon.Warning
+        );
+
+        if (result == System.Windows.Forms.DialogResult.Yes)
+        {
+            if (ModService.DeleteMod(SelectedVersionName, fileName, isEnabled))
+            {
+                LoadMods();
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !string.IsNullOrEmpty(SelectedVersionName))
+        {
+            await Task.Delay(100);
+            LoadMods();
+        }
+    }
+
+    // 新增：搜索相关功能
+    private void SwitchTab(string tab)
+    {
+        ActiveTab = tab;
+        StateHasChanged();
+    }
+
+    private async Task SearchMods()
+    {
+        if (string.IsNullOrEmpty(searchQuery))
+            return;
+
+        IsSearching = true;
+        StateHasChanged();
+
+        try
+        {
+            var gameVersion = SelectedVersionName ?? "";
+            SearchResults = await ModRepositoryService.SearchModrinthMods(searchQuery, gameVersion);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"搜索模组失败: {ex.Message}");
+            SearchResults.Clear();
+        }
+
+        IsSearching = false;
+        StateHasChanged();
+    }
+
+    private void ShowModDetails(ModRepositoryService.ModSearchResult mod)
+    {
+        try
+        {
+            // 使用默认浏览器打开项目页面
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = mod.ProjectUrl,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"打开模组详情失败: {ex.Message}");
+        }
+    }
+
+    private void DownloadMod(ModRepositoryService.ModSearchResult mod)
+    {
+        try
+        {
+            // 使用默认浏览器打开下载页面
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = mod.ProjectUrl,
+                UseShellExecute = true
+            });
+
+            System.Windows.Forms.MessageBox.Show(
+                "请在浏览器中下载模组文件，然后使用\"安装模组\"功能安装。",
+                "下载提示",
+                System.Windows.Forms.MessageBoxButtons.OK,
+                System.Windows.Forms.MessageBoxIcon.Information
+            );
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Forms.MessageBox.Show($"打开下载页面失败: {ex.Message}", "错误",
+                System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+        }
+    }
+
+    private async Task CheckConflicts()
+    {
+        if (string.IsNullOrEmpty(SelectedVersionName))
+            return;
+
+        try
+        {
+            var modFiles = Mods.Where(m => m.IsEnabled).Select(m => m.FileName).ToList();
+            var conflicts = await ModRepositoryService.DetectConflicts(modFiles);
+
+            if (conflicts.Count == 0)
+            {
+                System.Windows.Forms.MessageBox.Show(
+                    "未检测到模组冲突",
+                    "冲突检测",
+                    System.Windows.Forms.MessageBoxButtons.OK,
+                    System.Windows.Forms.MessageBoxIcon.Information
+                );
+            }
+            else
+            {
+                var conflictMessage = string.Join("\n", conflicts);
+                System.Windows.Forms.MessageBox.Show(
+                    $"检测到以下冲突：\n\n{conflictMessage}",
+                    "冲突检测",
+                    System.Windows.Forms.MessageBoxButtons.OK,
+                    System.Windows.Forms.MessageBoxIcon.Warning
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Forms.MessageBox.Show($"冲突检测失败: {ex.Message}", "错误",
+                System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+        }
+    }
+}

@@ -1,0 +1,75 @@
+@using ourmclauncher.Models
+
+<div class="page-modal hub-page download-center-page">
+    <div class="modal-header hub-header">
+        <div class="panel-title-bar">
+            <span class="panel-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="7,10 12,15 17,10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            </span>
+            <div>
+                <h2>下载中心</h2>
+                <p class="hub-subtitle">安装游戏版本并管理模组</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="hub-tabs" role="tablist" aria-label="下载类型">
+        <button class="hub-tab @(_activeSection == "game" ? "active" : "")" @onclick="ShowGameDownloads">游戏版本</button>
+        <button class="hub-tab @(_activeSection == "mods" ? "active" : "")" @onclick="ShowModDownloads">模组</button>
+    </div>
+
+    <div class="hub-content">
+        @if (_activeSection == "game")
+        {
+            <DownloadsPage
+                RemoteVersions="RemoteVersions"
+                InstalledVersions="InstalledVersions"
+                IsLoading="IsLoading"
+                IsDownloading="IsDownloading"
+                DownloadProgress="DownloadProgress"
+                DownloadStatus="DownloadStatus"
+                ShowDownloadSetup="ShowDownloadSetup"
+                InstallVersionName="InstallVersionName"
+                DownloadFilter="DownloadFilter"
+                OnFilterChanged="OnFilterChanged"
+                OnInstall="OnInstall"
+                OnCancelInstall="OnCancelInstall"
+                OnStartInstall="OnStartInstall" />
+        }
+        else
+        {
+            <ModsPage Versions="InstalledVersions" />
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<RemoteVersion> RemoteVersions { get; set; } = new();
+    [Parameter] public List<GameVersion> InstalledVersions { get; set; } = new();
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public bool IsDownloading { get; set; }
+    [Parameter] public int DownloadProgress { get; set; }
+    [Parameter] public string DownloadStatus { get; set; } = "";
+    [Parameter] public bool ShowDownloadSetup { get; set; }
+    [Parameter] public string InstallVersionName { get; set; } = "";
+    [Parameter] public string DownloadFilter { get; set; } = "release";
+    [Parameter] public EventCallback<string> OnFilterChanged { get; set; }
+    [Parameter] public EventCallback<string> OnInstall { get; set; }
+    [Parameter] public EventCallback OnCancelInstall { get; set; }
+    [Parameter] public EventCallback OnStartInstall { get; set; }
+
+    private string _activeSection = "game";
+
+    private void SelectSection(string section)
+    {
+        _activeSection = section;
+    }
+
+    private void ShowGameDownloads() => SelectSection("game");
+
+    private void ShowModDownloads() => SelectSection("mods");
+}

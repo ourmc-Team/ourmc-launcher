@@ -115,12 +115,14 @@ public class SkinService
                 var nicknameMatch = Regex.Match(html, @"nickname[""':\s]+([^""'<,]+)");
                 var emailMatch = Regex.Match(html, @"email[""':\s]+([^""'<,]+)");
                 var usernameMatch = Regex.Match(html, @"username[""':\s]+([^""'<,]+)");
-                
+                var avatarMatch = Regex.Match(html, @"avatar[""':\s]+([^""'<,]+)");
+
                 var userInfo = new UserInfo
                 {
                     Nickname = nicknameMatch.Success ? nicknameMatch.Groups[1].Value.Trim().TrimStart('>', ' ') : "",
                     Email = emailMatch.Success ? emailMatch.Groups[1].Value.Trim() : "",
-                    Username = usernameMatch.Success ? usernameMatch.Groups[1].Value.Trim() : ""
+                    Username = usernameMatch.Success ? usernameMatch.Groups[1].Value.Trim() : "",
+                    Avatar = avatarMatch.Success ? avatarMatch.Groups[1].Value.Trim() : GetDefaultAvatarUrl(120)
                 };
 
                 System.Diagnostics.Debug.WriteLine($"解析用户信息: nickname={userInfo.Nickname}, email={userInfo.Email}");

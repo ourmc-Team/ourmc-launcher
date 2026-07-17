@@ -1,0 +1,397 @@
+@* 实例管理页面组件 *@
+@using ourmclauncher.Models
+@inject InstanceService InstanceService
+@inject SettingsService SettingsService
+
+<div class="page-modal page-instances">
+    <div class="modal-header">
+        <div class="panel-title-bar">
+            <span class="panel-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27,6.96 12,12.01 20.73,6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+            </span>
+            <h2>实例管理</h2>
+        </div>
+        <div class="header-actions">
+            <button class="btn-outline" @onclick="ShowImportDialog">导入实例</button>
+            <button class="btn-primary" @onclick="ShowCreateDialog">创建实例</button>
+        </div>
+    </div>
+    <div class="modal-body instances-body-scroll">
+        @if (IsLoading)
+        {
+            <div class="loading-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="loading-spinner">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+                <p>加载实例列表...</p>
+            </div>
+        }
+        else if (Instances.Count == 0)
+        {
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27,6.96 12,12.01 20.73,6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+                <h3>暂无实例</h3>
+                <p>点击"创建实例"开始创建您的第一个游戏实例</p>
+            </div>
+        }
+        else
+        {
+            <div class="instances-list">
+                @foreach (var instance in Instances.OrderByDescending(i => i.LastPlayedAt))
+                {
+                    <div class="instance-item" @onclick="() => SelectInstance(instance.Id)">
+                        <div class="instance-icon">
+                            @if (!string.IsNullOrEmpty(instance.Icon))
+                            {
+                                <img src="@instance.Icon" alt="@instance.Name" />
+                            }
+                            else
+                            {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                                </svg>
+                            }
+                            <span class="instance-badge">@GetInstanceTypeBadge(instance.Type)</span>
+                        </div>
+                        <div class="instance-info">
+                            <div class="instance-name">@instance.Name</div>
+                            <div class="instance-meta">
+                                <span>@instance.VersionId</span>
+                                <span>•</span>
+                                <span>@GetLastPlayedText(instance.LastPlayedAt)</span>
+                            </div>
+                            <div class="instance-stats">
+                                <div class="stat-item">
+                                    <span class="stat-label">游玩次数</span>
+                                    <span class="stat-value">@instance.TotalPlayTime</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">游戏时长</span>
+                                    <span class="stat-value">@FormatPlayTimeHours(instance.TotalPlayTime)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="instance-actions">
+                            <button class="btn-launch" @onclick="() => LaunchInstance(instance.Id)" title="启动">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="5,3 19,12 5,21"/>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" @onclick="() => ExportInstance(instance.Id)" title="导出">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                    <polyline points="7,10 12,15 17,10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" @onclick="() => BackupInstance(instance.Id)" title="备份">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M19,21 14,16 17,16 17,11 13,11 13,8 19,8 19,3 21,3 21,8 27,8 27,11 23,11 23,16 26,16 21,21 Z"/>
+                                </svg>
+                            </button>
+                            <button class="btn-icon btn-danger" @onclick="() => DeleteInstance(instance.Id)" title="删除">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3,6 5,6 21,6"/>
+                                    <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@if (ShowCreateModal)
+{
+    <div class="page-modal-overlay" @onclick="HideCreateDialog">
+        <div class="create-instance-dialog" @onclick:stopPropagation>
+            <div class="modal-header">
+                <div class="panel-title-bar">
+                    <span class="panel-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                    </span>
+                    <h2>创建新实例</h2>
+                </div>
+                <button class="btn-icon" @onclick="HideCreateDialog">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>实例名称</label>
+                    <input type="text" @bind="newInstanceName" placeholder="输入实例名称" />
+                </div>
+                <div class="form-group">
+                    <label>游戏版本</label>
+                    <select @bind="newInstanceVersion">
+                        <option value="">选择版本</option>
+                        @if (AvailableVersions.Count > 0)
+                        {
+                            @foreach (var version in AvailableVersions)
+                            {
+                                <option value="@version.Id">@version.Name (@version.Type)</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>实例类型</label>
+                    <select @bind="newInstanceType">
+                        <option value="@InstanceType.Custom">自定义</option>
+                        <option value="@InstanceType.Vanilla">原版</option>
+                        <option value="@InstanceType.Modded">Modded</option>
+                        <option value="@InstanceType.Integrated">集成</option>
+                        <option value="@InstanceType.ThirdParty">第三方</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button class="btn-secondary" @onclick="HideCreateDialog">取消</button>
+                    <button class="btn-primary" @onclick="CreateInstance" disabled="@(string.IsNullOrEmpty(newInstanceName) || string.IsNullOrEmpty(newInstanceVersion))">创建实例</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public List<GameVersion> AvailableVersions { get; set; } = new();
+    [Parameter] public EventCallback<string> OnInstanceLaunch { get; set; }
+
+    private List<GameInstance> Instances { get; set; } = new();
+    private bool IsLoading { get; set; }
+    private bool ShowCreateModal { get; set; }
+    private string newInstanceName = "";
+    private string newInstanceVersion = "";
+    private InstanceType newInstanceType = InstanceType.Custom;
+
+    protected override void OnInitialized()
+    {
+        LoadInstances();
+    }
+
+    private void LoadInstances()
+    {
+        IsLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            Instances = InstanceService.GetInstances();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"加载实例列表失败: {ex.Message}");
+            Instances.Clear();
+        }
+
+        IsLoading = false;
+        StateHasChanged();
+    }
+
+    private void ShowCreateDialog()
+    {
+        ShowCreateModal = true;
+        StateHasChanged();
+    }
+
+    private void HideCreateDialog()
+    {
+        ShowCreateModal = false;
+        newInstanceName = "";
+        newInstanceVersion = "";
+        newInstanceType = InstanceType.Custom;
+        StateHasChanged();
+    }
+
+    private void CreateInstance()
+    {
+        if (string.IsNullOrEmpty(newInstanceName) || string.IsNullOrEmpty(newInstanceVersion))
+            return;
+
+        try
+        {
+            var instance = InstanceService.CreateInstance(newInstanceName, newInstanceVersion, newInstanceType);
+            HideCreateDialog();
+            LoadInstances();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Forms.MessageBox.Show($"创建实例失败: {ex.Message}", "错误",
+                System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+        }
+    }
+
+    private void ShowImportDialog()
+    {
+        try
+        {
+            var openDialog = new System.Windows.Forms.OpenFileDialog
+            {
+                Title = "选择实例压缩包",
+                Filter = "压缩包文件 (*.zip)|*.zip|所有文件 (*.*)|*.*",
+                Multiselect = false
+            };
+
+            if (openDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                var instance = InstanceService.ImportInstance(openDialog.FileName);
+                if (instance != null)
+                {
+                    LoadInstances();
+                }
+                else
+                {
+                    System.Windows.Forms.MessageBox.Show("导入实例失败：无效的实例文件", "错误",
+                        System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Forms.MessageBox.Show($"导入实例失败: {ex.Message}", "错误",
+                System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+        }
+    }
+
+    private void ExportInstance(string instanceId)
+    {
+        try
+        {
+            var saveDialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "选择导出目录",
+                ShowNewFolderButton = true
+            };
+
+            if (saveDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                var exportPath = InstanceService.ExportInstance(instanceId, saveDialog.SelectedPath);
+                if (!string.IsNullOrEmpty(exportPath))
+                {
+                    System.Windows.Forms.MessageBox.Show($"实例已导出到: {exportPath}", "成功",
+                        System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Information);
+                }
+                else
+                {
+                    System.Windows.Forms.MessageBox.Show("导出实例失败", "错误",
+                        System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Forms.MessageBox.Show($"导出实例失败: {ex.Message}", "错误",
+                System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+        }
+    }
+
+    private void BackupInstance(string instanceId)
+    {
+        try
+        {
+            if (InstanceService.BackupInstance(instanceId))
+            {
+                System.Windows.Forms.MessageBox.Show("实例备份成功", "成功",
+                    System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Information);
+            }
+            else
+            {
+                System.Windows.Forms.MessageBox.Show("备份实例失败", "错误",
+                    System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Forms.MessageBox.Show($"备份实例失败: {ex.Message}", "错误",
+                System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+        }
+    }
+
+    private void DeleteInstance(string instanceId)
+    {
+        var instance = InstanceService.GetInstance(instanceId);
+        if (instance == null) return;
+
+        var result = System.Windows.Forms.MessageBox.Show(
+            $"确定要删除实例 {instance.Name} 吗？此操作不可撤销。",
+            "确认删除",
+            System.Windows.Forms.MessageBoxButtons.YesNo,
+            System.Windows.Forms.MessageBoxIcon.Warning
+        );
+
+        if (result == System.Windows.Forms.DialogResult.Yes)
+        {
+            if (InstanceService.DeleteInstance(instanceId))
+            {
+                LoadInstances();
+            }
+            else
+            {
+                System.Windows.Forms.MessageBox.Show("删除实例失败", "错误",
+                    System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+            }
+        }
+    }
+
+    private void SelectInstance(string instanceId)
+    {
+        // 可以在这里添加选择实例的逻辑
+    }
+
+    private void LaunchInstance(string instanceId)
+    {
+        OnInstanceLaunch.InvokeAsync(instanceId);
+    }
+
+    private string GetInstanceTypeBadge(InstanceType type)
+    {
+        return type switch
+        {
+            InstanceType.Integrated => "集成",
+            InstanceType.ThirdParty => "第三方",
+            InstanceType.Custom => "自定义",
+            InstanceType.Vanilla => "原版",
+            InstanceType.Modded => "Modded",
+            InstanceType.Server => "服务器",
+            _ => "未知"
+        };
+    }
+
+    private string GetLastPlayedText(DateTime lastPlayed)
+    {
+        if (lastPlayed == DateTime.MinValue)
+            return "未游玩";
+
+        var span = DateTime.Now - lastPlayed;
+        if (span.TotalDays < 1)
+            return "今天";
+        if (span.TotalDays < 7)
+            return $"{(int)span.TotalDays}天前";
+        if (span.TotalDays < 30)
+            return $"{(int)(span.TotalDays / 7)}周前";
+        return $"{(int)(span.TotalDays / 30)}月前";
+    }
+
+    private string FormatPlayTimeHours(long seconds)
+    {
+        if (seconds < 3600)
+            return "<1h";
+        var hours = seconds / 3600;
+        if (hours < 24)
+            return $"{hours}h";
+        var days = hours / 24;
+        return $"{days}d";
+    }
+}

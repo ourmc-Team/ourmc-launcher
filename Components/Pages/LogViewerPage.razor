@@ -1,0 +1,176 @@
+@* 日志查看器页面组件 *@
+@using ourmclauncher.Models
+@inject LogService LogService
+
+<div class="page-modal page-logviewer @(IsClosing ? "closing" : "")">
+    <div class="modal-header">
+        <h2>游戏日志</h2>
+        <button class="btn-close-modal" @onclick="OnClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+    </div>
+    <div class="modal-body logviewer-body-scroll">
+        <div class="logviewer-controls">
+            <div class="logviewer-filter">
+                <input type="text" @bind="SearchQuery" @bind:event="oninput" placeholder="搜索日志..." class="input-flex" />
+                <select @bind="LogLevelFilter" class="input-flex">
+                    <option value="">全部级别</option>
+                    <option value="0">信息</option>
+                    <option value="1">警告</option>
+                    <option value="2">错误</option>
+                    <option value="3">崩溃</option>
+                </select>
+                <button class="btn-outline btn-sm" @onclick="ClearLogs" disabled="@(Logs.Count == 0)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">
+                        <polyline points="3,6 5,6 21,6"/>
+                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                    </svg>
+                    清空
+                </button>
+                <button class="btn-outline btn-sm" @onclick="ExportLogs" disabled="@(Logs.Count == 0)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                        <polyline points="7,10 12,15 17,10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    导出
+                </button>
+            </div>
+            <div class="logviewer-stats">
+                @if (Stats.Count > 0)
+                {
+                    <span class="stat-item">总计: @Logs.Count</span>
+                    if (Stats.ContainsKey(LogLevel.Error))
+                    {
+                        <span class="stat-item stat-error">错误: @Stats[LogLevel.Error]</span>
+                    }
+                    if (Stats.ContainsKey(LogLevel.Crash))
+                    {
+                        <span class="stat-item stat-crash">崩溃: @Stats[LogLevel.Crash]</span>
+                    }
+                }
+            </div>
+        </div>
+        <div class="logviewer-content">
+            @if (Logs.Count == 0)
+            {
+                <p class="empty-text">暂无日志记录</p>
+            }
+            else
+            {
+                @foreach (var log in Logs)
+                {
+                    <div class="log-entry log-@log.Level.ToString().ToLower()">
+                        <span class="log-time">@log.Time.ToString("HH:mm:ss.fff")</span>
+                        <span class="log-level">[@log.Level]</span>
+                        <span class="log-message">@log.Message</span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+    public bool IsClosing { get; set; }
+
+    private List<LogEntry> Logs { get; set; } = new();
+    private Dictionary<LogLevel, int> Stats { get; set; } = new();
+    private string SearchQuery { get; set; } = "";
+    private string LogLevelFilter { get; set; } = "";
+
+    protected override void OnInitialized()
+    {
+        LogService.OnLogAdded += HandleLogAdded;
+        LogService.OnLogsCleared += HandleLogsCleared;
+        RefreshLogs();
+    }
+
+    public void Dispose()
+    {
+        LogService.OnLogAdded -= HandleLogAdded;
+        LogService.OnLogsCleared -= HandleLogsCleared;
+    }
+
+    private void HandleLogAdded(LogEntry entry)
+    {
+        Logs.Add(entry);
+
+        // 如果日志太多，定期清理旧日志（保留最近1000条）
+        if (Logs.Count > 1000)
+        {
+            Logs.RemoveRange(0, Logs.Count - 1000);
+        }
+
+        UpdateStats();
+
+        // 只在每10条日志时更新UI，避免卡顿
+        if (Logs.Count % 10 == 0)
+        {
+            StateHasChanged();
+        }
+    }
+
+    private void HandleLogsCleared()
+    {
+        Logs.Clear();
+        Stats.Clear();
+        StateHasChanged();
+    }
+
+    private void RefreshLogs()
+    {
+        LogLevel? level = LogLevelFilter switch
+        {
+            "0" => LogLevel.Info,
+            "1" => LogLevel.Warning,
+            "2" => LogLevel.Error,
+            "3" => LogLevel.Crash,
+            _ => (LogLevel?)null
+        };
+
+        Logs = LogService.FilterLogs(level, SearchQuery);
+        UpdateStats();
+    }
+
+    private void UpdateStats()
+    {
+        Stats = LogService.GetLogStats();
+    }
+
+    private void ClearLogs()
+    {
+        LogService.ClearLogs();
+    }
+
+    private async Task ExportLogs()
+    {
+        try
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var exportDir = Path.Combine(appData, ".minecraft", "oml");
+            Directory.CreateDirectory(exportDir);
+
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var exportPath = Path.Combine(exportDir, $"minecraft_log_{timestamp}.txt");
+
+            if (LogService.ExportToFile(exportPath))
+            {
+                await Task.Delay(100);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"导出日志失败: {ex.Message}");
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        RefreshLogs();
+    }
+}

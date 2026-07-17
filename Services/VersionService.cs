@@ -60,7 +60,7 @@ public class VersionService
             if (File.Exists(jsonPath))
             {
                 var type = DetermineVersionType(name, jsonPath);
-                _versions.Add(new GameVersion { Name = name, Type = type });
+                _versions.Add(new GameVersion { Id = name, Name = name, Type = type });
             }
         }
 
@@ -104,6 +104,17 @@ public class VersionService
             {
                 var json = File.ReadAllText(_versionsFile);
                 _versions = JsonSerializer.Deserialize<List<GameVersion>>(json) ?? new();
+                var repairedIds = false;
+                foreach (var version in _versions.Where(version => string.IsNullOrWhiteSpace(version.Id)))
+                {
+                    version.Id = version.Name;
+                    repairedIds = true;
+                }
+
+                if (repairedIds)
+                {
+                    SaveVersions();
+                }
             }
             else
             {

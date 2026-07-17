@@ -1,0 +1,136 @@
+@using ourmclauncher.Services
+@inject SettingsService SettingsService
+@inject NotificationService NotificationService
+
+<div class="launch-config-page">
+    <div class="launch-config-header">
+        <div>
+            <h3>启动参数</h3>
+            <p>这些设置会直接进入下一次游戏启动命令。</p>
+        </div>
+        <button class="btn-icon" @onclick="OnClose" title="返回版本列表" aria-label="返回版本列表">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+            </svg>
+        </button>
+    </div>
+
+    <section class="launch-config-section">
+        <div class="launch-config-section-title">
+            <div>
+                <h4>Java 虚拟机</h4>
+                <p>内存大小请在“启动优化”中调整。</p>
+            </div>
+            <button class="btn-outline btn-sm" @onclick="ResetJvmArgs">清空</button>
+        </div>
+        <label class="form-group">
+            <span>自定义 JVM 参数</span>
+            <textarea class="settings-textarea launch-args-input" @bind="CustomJvmArgs" @bind:event="oninput" rows="4"
+                      placeholder="例如：-Dfile.encoding=UTF-8 -XX:+UseG1GC"></textarea>
+            <small>不需要填写 -Xmx 或 -Xms，启动器会根据内存设置自动生成。</small>
+        </label>
+        @if (!string.IsNullOrEmpty(ValidationMessage))
+        {
+            <p class="launch-config-warning">@ValidationMessage</p>
+        }
+    </section>
+
+    <section class="launch-config-section">
+        <div class="launch-config-section-title">
+            <div>
+                <h4>游戏窗口</h4>
+                <p>窗口参数会直接传递给 Minecraft。</p>
+            </div>
+        </div>
+        <label class="setting-toggle-row">
+            <span>
+                <strong>全屏启动</strong>
+                <small>启用后忽略下方窗口尺寸</small>
+            </span>
+            <input type="checkbox" @bind="Fullscreen" />
+        </label>
+        <div class="setting-grid-two launch-window-grid">
+            <label class="form-group">
+                <span>窗口宽度</span>
+                <input type="number" @bind="WindowWidth" min="640" max="3840" step="10" disabled="@Fullscreen" />
+            </label>
+            <label class="form-group">
+                <span>窗口高度</span>
+                <input type="number" @bind="WindowHeight" min="480" max="2160" step="10" disabled="@Fullscreen" />
+            </label>
+        </div>
+    </section>
+
+    <div class="launch-config-actions">
+        <button class="btn-outline" @onclick="ResetAll">恢复默认</button>
+        <button class="btn-primary" @onclick="SaveParams">保存启动参数</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSettingsChanged { get; set; }
+
+    private string CustomJvmArgs = "";
+    private bool Fullscreen;
+    private int WindowWidth = 854;
+    private int WindowHeight = 480;
+    private string ValidationMessage = "";
+
+    protected override void OnInitialized()
+    {
+        var settings = SettingsService.GetAllSettings();
+        CustomJvmArgs = settings.CustomJvmArgs ?? "";
+        Fullscreen = settings.Fullscreen;
+        WindowWidth = settings.WindowWidth;
+        WindowHeight = settings.WindowHeight;
+    }
+
+    private async Task SaveParams()
+    {
+        ValidationMessage = ValidateJvmArgs(CustomJvmArgs);
+        if (!string.IsNullOrEmpty(ValidationMessage))
+        {
+            await NotificationService.Warning(ValidationMessage, 3500);
+            return;
+        }
+
+        SettingsService.Update(settings =>
+        {
+            settings.CustomJvmArgs = CustomJvmArgs.Trim();
+            settings.Fullscreen = Fullscreen;
+            settings.WindowWidth = Math.Clamp(WindowWidth, 640, 3840);
+            settings.WindowHeight = Math.Clamp(WindowHeight, 480, 2160);
+        });
+
+        WindowWidth = Math.Clamp(WindowWidth, 640, 3840);
+        WindowHeight = Math.Clamp(WindowHeight, 480, 2160);
+        await OnSettingsChanged.InvokeAsync();
+        await NotificationService.Success("启动参数已保存，下次启动生效", 2500);
+    }
+
+    private void ResetJvmArgs()
+    {
+        CustomJvmArgs = "";
+        ValidationMessage = "";
+    }
+
+    private void ResetAll()
+    {
+        CustomJvmArgs = "";
+        Fullscreen = false;
+        WindowWidth = 854;
+        WindowHeight = 480;
+        ValidationMessage = "";
+    }
+
+    private static string ValidateJvmArgs(string args)
+    {
+        if (args.Count(character => character == '"') % 2 != 0)
+        {
+            return "JVM 参数中的引号没有成对闭合";
+        }
+
+        return "";
+    }
+}

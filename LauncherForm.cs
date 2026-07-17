@@ -24,6 +24,15 @@ public class LauncherForm : Form
     [DllImport("user32.dll")]
     private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr DefWindowProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
     [StructLayout(LayoutKind.Sequential)]
     private struct MARGINS
     {
@@ -37,25 +46,42 @@ public class LauncherForm : Form
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     private const int DWMWCP_ROUND = 2;
+    private const int DWMWCP_ROUNDSMALL = 3;
+    private const int DWMWCP_DONOTROUND = 1;
     private const int GWL_STYLE = -16;
     private const int WS_MINIMIZEBOX = 0x00020000;
     private const int WS_SYSMENU = 0x00080000;
+    private const int WS_THICKFRAME = 0x00040000;
+    private const int WM_NCLBUTTONDOWN = 0xA1;
+    private const int HT_CAPTION = 0x2;
+    private const int WM_NCHITTEST = 0x84;
+    private const int HTLEFT = 10;
+    private const int HTRIGHT = 11;
+    private const int HTTOP = 12;
+    private const int HTBOTTOM = 15;
+    private const int HTTOPLEFT = 13;
+    private const int HTTOPRIGHT = 14;
+    private const int HTBOTTOMLEFT = 16;
+    private const int HTBOTTOMRIGHT = 17;
 
     public LauncherForm()
     {
-        Text = "oml - 我们的世界启动器";
-        Size = new Size(852, 532);
+        Text = "ourmc-launcher";
+        Size = new Size(1000, 650);
+        MinimumSize = new Size(800, 500);
+        MaximumSize = new Size(1920, 1080);
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Color.FromArgb(26, 26, 46);
         ShowInTaskbar = true;
-        
+
         // 启用双缓冲，减少闪烁
         DoubleBuffered = true;
-        SetStyle(ControlStyles.OptimizedDoubleBuffer | 
-                 ControlStyles.AllPaintingInWmPaint | 
-                 ControlStyles.UserPaint, true);
-        
+        SetStyle(ControlStyles.OptimizedDoubleBuffer |
+                 ControlStyles.AllPaintingInWmPaint |
+                 ControlStyles.UserPaint |
+                 ControlStyles.ResizeRedraw, true);
+
         // 初始隐藏窗口，等加载完成后再显示，避免闪烁
         Opacity = 0;
     }
@@ -73,6 +99,13 @@ public class LauncherForm : Form
     {
         base.OnLoad(e);
         ApplyWindows11Style();
+        ApplyRoundedRegionFallback();
+    }
+
+    protected override void OnSizeChanged(EventArgs e)
+    {
+        base.OnSizeChanged(e);
+        ApplyRoundedRegionFallback();
     }
 
     protected override CreateParams CreateParams
@@ -80,9 +113,46 @@ public class LauncherForm : Form
         get
         {
             CreateParams cp = base.CreateParams;
-            // 添加 WS_MINIMIZEBOX 和 WS_SYSMENU 样式，支持任务栏交互
-            cp.Style |= WS_MINIMIZEBOX | WS_SYSMENU;
+            // 添加 WS_MINIMIZEBOX、WS_SYSMENU 和 WS_THICKFRAME 样式
+            cp.Style |= WS_MINIMIZEBOX | WS_SYSMENU | WS_THICKFRAME;
             return cp;
+        }
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        base.WndProc(ref m);
+
+        switch (m.Msg)
+        {
+            case WM_NCHITTEST:
+                // 处理鼠标位置检测，用于调整窗口大小
+                var point = new Point((int)m.LParam);
+                point = this.PointToClient(point);
+
+                int borderWidth = 6; // 边框宽度
+                bool hitLeft = point.X <= borderWidth;
+                bool hitRight = point.X >= this.ClientSize.Width - borderWidth;
+                bool hitTop = point.Y <= borderWidth;
+                bool hitBottom = point.Y >= this.ClientSize.Height - borderWidth;
+
+                if (hitLeft && hitTop)
+                    m.Result = (IntPtr)HTTOPLEFT;
+                else if (hitRight && hitTop)
+                    m.Result = (IntPtr)HTTOPRIGHT;
+                else if (hitLeft && hitBottom)
+                    m.Result = (IntPtr)HTBOTTOMLEFT;
+                else if (hitRight && hitBottom)
+                    m.Result = (IntPtr)HTBOTTOMRIGHT;
+                else if (hitLeft)
+                    m.Result = (IntPtr)HTLEFT;
+                else if (hitRight)
+                    m.Result = (IntPtr)HTRIGHT;
+                else if (hitTop)
+                    m.Result = (IntPtr)HTTOP;
+                else if (hitBottom)
+                    m.Result = (IntPtr)HTBOTTOM;
+                break;
         }
     }
 
@@ -104,17 +174,38 @@ public class LauncherForm : Form
                 DwmSetWindowAttribute(this.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1, ref useImmersiveDarkMode, sizeof(int));
             }
 
-            // 启用圆角
+            // 使用系统圆角配合CSS圆角
             int cornerPreference = DWMWCP_ROUND;
             DwmSetWindowAttribute(this.Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPreference, sizeof(int));
+
+            // 扩展内容区域到窗口边缘，消除圆角白边
+            var margins = new MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
+            DwmExtendFrameIntoClientArea(this.Handle, ref margins);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"应用窗口样式失败: {ex.Message}");
+        }
+    }
+
+    private void ApplyRoundedRegionFallback()
+    {
+        if (!IsHandleCreated || ClientSize.Width <= 0 || ClientSize.Height <= 0)
+        {
+            return;
+        }
+
+        var oldRegion = Region;
+        Region = WindowState == FormWindowState.Maximized
+            ? new Region(ClientRectangle)
+            : CreateRoundedRegion(ClientSize.Width, ClientSize.Height, 20);
+        oldRegion?.Dispose();
     }
 
     /// <summary>
     /// 窗口淡入动画
     /// </summary>
-    public async void FadeIn(int duration = 250)
+    public async void FadeIn(int duration = 100)
     {
         for (double i = 0; i <= 1; i += 0.05)
         {

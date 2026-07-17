@@ -1,5 +1,8 @@
-@* 账户页面组件 - 使用 Blazor @bind 替代 JS eval *@
-<div class="page-modal page-account @(IsClosing ? "closing" : "")">
+@* 账户页面组件 *@
+@using ourmclauncher.Models
+@inject AccountManagerService AccountManagerService
+
+<div class="page-modal page-account">
     <div class="modal-header">
         <div class="panel-title-bar">
             <span class="panel-icon">
@@ -10,8 +13,14 @@
             </span>
             <h2>账户</h2>
         </div>
+        <button class="btn-icon" @onclick="OnClose" title="返回设置">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body account-body-scroll">
         @if (IsLoggedIn)
         {
             <div class="account-logged-in">
@@ -29,22 +38,47 @@
         else
         {
             <div class="account-login">
-                <h2>登录账户</h2>
+                @if (Accounts.Count > 0)
+                {
+                    <div class="account-list">
+                        <h4>已保存的账号</h4>
+                        @foreach (var account in Accounts)
+                        {
+                            <div class="account-item @(account.IsDefault ? "account-default" : "")">
+                                <div class="account-item-avatar">
+                                    <img src="@(!string.IsNullOrEmpty(account.Avatar) ? account.Avatar : "server.png")" alt="头像" style="width:32px;height:32px;border-radius:50%;" />
+                                </div>
+                                <div class="account-item-info">
+                                    <div class="account-item-name">@account.Nickname</div>
+                                    <div class="account-item-email">@account.Email</div>
+                                </div>
+                                <div class="account-item-actions">
+                                    <button class="btn-outline btn-sm" @onclick="() => SwitchToAccount(account)">切换</button>
+                                    <button class="btn-outline btn-sm" @onclick="() => EditAccount(account)">编辑</button>
+                                    <button class="btn-danger btn-sm" @onclick="() => DeleteAccount(account.Id)">删除</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
                 <div class="form-group">
                     <label>邮箱 / 用户名</label>
-                    <input type="text" @bind="loginEmail" @bind:event="oninput" placeholder="请输入邮箱或用户名" />
+                    <input type="text" @bind="loginEmail" @bind:event="oninput" />
                 </div>
                 <div class="form-group">
                     <label>密码</label>
-                    <input type="password" @bind="loginPassword" @bind:event="oninput" placeholder="请输入密码" />
+                    <input type="password" @bind="loginPassword" @bind:event="oninput" />
                 </div>
                 @if (!string.IsNullOrEmpty(loginError))
                 {
                     <p class="login-error" style="color: #ff6b6b; margin-top: 8px;">@loginError</p>
                 }
-                <button class="btn-primary btn-login" @onclick="HandleLogin" disabled="@(isLoggingIn)">
-                    @(isLoggingIn ? "登录中..." : "登录")
-                </button>
+                <div class="login-actions">
+                    <button class="btn-primary" @onclick="HandleLogin" disabled="@(isLoggingIn)">
+                        @(isLoggingIn ? "登录中..." : "登录")
+                    </button>
+                </div>
                 <p class="login-register">
                     还没有账号？<a href="https://skin.our-mc.cn/register" target="_blank">立即注册</a>
                 </p>
@@ -58,16 +92,57 @@
     [Parameter] public string Nickname { get; set; } = "未登录";
     [Parameter] public string UserEmail { get; set; } = "";
     [Parameter] public string AvatarUrl { get; set; } = "";
-    [Parameter] public bool IsClosing { get; set; }
     [Parameter] public EventCallback<(string email, string password)> OnLogin { get; set; }
     [Parameter] public EventCallback OnLogout { get; set; }
     [Parameter] public EventCallback OnManageSkin { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
 
+    private List<Account> Accounts { get; set; } = new();
     private string loginEmail = "";
     private string loginPassword = "";
     private string loginError = "";
     private bool isLoggingIn = false;
+
+    protected override void OnInitialized()
+    {
+        LoadAccounts();
+    }
+
+    private void LoadAccounts()
+    {
+        Accounts = AccountManagerService.GetAccounts();
+    }
+
+    private void SwitchToAccount(Account account)
+    {
+        // 这里可以自动填充密码（如果保存了的话）或者只是填充用户名
+        loginEmail = account.Email;
+        loginPassword = ""; // 密码需要重新输入，出于安全考虑
+        StateHasChanged();
+    }
+
+    private void EditAccount(Account account)
+    {
+        // 可以打开编辑对话框
+        // 暂时简化为只允许删除
+    }
+
+    private void DeleteAccount(string accountId)
+    {
+        var result = System.Windows.Forms.MessageBox.Show(
+            "确定要删除此账号吗？",
+            "确认删除",
+            System.Windows.Forms.MessageBoxButtons.YesNo,
+            System.Windows.Forms.MessageBoxIcon.Warning
+        );
+
+        if (result == System.Windows.Forms.DialogResult.Yes)
+        {
+            AccountManagerService.RemoveAccount(accountId);
+            LoadAccounts();
+            StateHasChanged();
+        }
+    }
 
     private async Task HandleLogin()
     {

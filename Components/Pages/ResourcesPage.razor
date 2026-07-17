@@ -1,0 +1,437 @@
+@* 资源管理页面组件 *@
+@inject ResourceService ResourceService
+@inject PathService PathService
+
+<div class="page-modal page-resources">
+    <div class="modal-header">
+        <div class="panel-title-bar">
+            <span class="panel-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+            </span>
+            <h2>资源管理</h2>
+        </div>
+    </div>
+    <div class="modal-body resources-body-scroll">
+        <div class="resources-tabs">
+            <button class="download-tab @(ActiveTab == "worlds" ? "download-tab-active" : "")" @onclick="@(() => SwitchTab("worlds"))">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M2 12h20"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+                世界存档
+            </button>
+            <button class="download-tab @(ActiveTab == "resourcepacks" ? "download-tab-active" : "")" @onclick="@(() => SwitchTab("resourcepacks"))">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                </svg>
+                资源包
+            </button>
+            <button class="download-tab @(ActiveTab == "screenshots" ? "download-tab-active" : "")" @onclick="@(() => SwitchTab("screenshots"))">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21,15 16,10 5,21"/>
+                </svg>
+                截图
+            </button>
+        </div>
+
+        @if (ActiveTab == "worlds")
+        {
+            <div class="resources-content">
+                <div class="resources-actions">
+                    <button class="btn-outline" @onclick="RefreshWorlds">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="23,4 23,10 17,10"/>
+                            <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+                        </svg>
+                        刷新
+                    </button>
+                </div>
+
+                @if (IsLoading)
+                {
+                    <div class="loading-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="loading-spinner">
+                            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                        </svg>
+                        <p>加载世界列表...</p>
+                    </div>
+                }
+                else if (WorldSaves.Count == 0)
+                {
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M2 12h20"/>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                        <h3>暂无世界存档</h3>
+                        <p>进入游戏创建世界后将在此显示</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="resource-list">
+                        @foreach (var world in WorldSaves)
+                        {
+                            <div class="resource-item">
+                                <div class="resource-icon">🌍</div>
+                                <div class="resource-info">
+                                    <div class="resource-name">@world.Name</div>
+                                    <div class="resource-meta">
+                                        <span>@FormatFileSize(world.Size)</span>
+                                        @if (world.LastPlayed != DateTime.MinValue)
+                                        {
+                                            <span>@world.LastPlayed.ToString("yyyy-MM-dd HH:mm")</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="resource-actions">
+                                    <button class="btn-icon" @onclick="() => BackupWorld(world.Path)" title="备份">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                            <path d="M19,21 14,16 17,16 17,11 13,11 13,8 19,8 19,3 21,3 21,8 27,8 27,11 23,11 23,16 26,16 21,21 Z"/>
+                                        </svg>
+                                    </button>
+                                    <button class="btn-icon" @onclick="() => OpenWorldFolder(world.Path)" title="打开">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else if (ActiveTab == "resourcepacks")
+        {
+            <div class="resources-content">
+                <div class="resources-actions">
+                    <button class="btn-outline" @onclick="OpenResourcePacksFolder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        打开文件夹
+                    </button>
+                    <button class="btn-outline" @onclick="RefreshResourcePacks">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="23,4 23,10 17,10"/>
+                            <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+                        </svg>
+                        刷新
+                    </button>
+                </div>
+
+                @if (IsLoading)
+                {
+                    <div class="loading-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="loading-spinner">
+                            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                        </svg>
+                        <p>加载资源包列表...</p>
+                    </div>
+                }
+                else if (ResourcePacks.Count == 0)
+                {
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        </svg>
+                        <h3>暂无资源包</h3>
+                        <p>将资源包文件放入资源包文件夹后将在此显示</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="resource-list">
+                        @foreach (var pack in ResourcePacks)
+                        {
+                            <div class="resource-item @(pack.Enabled ? "" : "resource-item-disabled")">
+                                <div class="resource-icon">📦</div>
+                                <div class="resource-info">
+                                    <div class="resource-name">@pack.Name</div>
+                                    <div class="resource-meta">
+                                        <span>@pack.Format</span>
+                                        <span>@FormatFileSize(pack.Size)</span>
+                                    </div>
+                                </div>
+                                <div class="resource-actions">
+                                    <button class="btn-icon @(pack.Enabled ? "btn-danger" : "")" @onclick="() => ToggleResourcePack(pack)" title="@(pack.Enabled ? "禁用" : "启用")">
+                                        @if (pack.Enabled)
+                                        {
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                                <line x1="6" y1="6" x2="18" y2="18"/>
+                                            </svg>
+                                        }
+                                        else
+                                        {
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                                <polyline points="20,6 9,17 4,12"/>
+                                            </svg>
+                                        }
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else if (ActiveTab == "screenshots")
+        {
+            <div class="resources-content">
+                <div class="resources-actions">
+                    <button class="btn-outline" @onclick="OpenScreenshotsFolder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        打开文件夹
+                    </button>
+                    <button class="btn-outline" @onclick="RefreshScreenshots">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="23,4 23,10 17,10"/>
+                            <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+                        </svg>
+                        刷新
+                    </button>
+                </div>
+
+                @if (IsLoading)
+                {
+                    <div class="loading-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="loading-spinner">
+                            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                        </svg>
+                        <p>加载截图列表...</p>
+                    </div>
+                }
+                else if (Screenshots.Count == 0)
+                {
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21,15 16,10 5,21"/>
+                        </svg>
+                        <h3>暂无截图</h3>
+                        <p>在游戏中截图（F2）后将在此显示</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="screenshots-grid">
+                        @foreach (var screenshot in Screenshots)
+                        {
+                            <div class="screenshot-item" @onclick="() => OpenScreenshot(screenshot.FilePath)">
+                                <div class="screenshot-preview">
+                                    <img src="@screenshot.FilePath" alt="@screenshot.Name" loading="lazy" />
+                                </div>
+                                <div class="screenshot-info">
+                                    <div class="screenshot-name">@screenshot.Name</div>
+                                    <div class="screenshot-meta">
+                                        <span>@screenshot.Created.ToString("yyyy-MM-dd HH:mm")</span>
+                                        <span>@FormatFileSize(screenshot.Size)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public string CurrentVersionId { get; set; } = "";
+
+    private string ActiveTab { get; set; } = "worlds";
+    private bool IsLoading { get; set; }
+
+    private List<WorldSave> WorldSaves { get; set; } = new();
+    private List<ResourcePack> ResourcePacks { get; set; } = new();
+    private List<Screenshot> Screenshots { get; set; } = new();
+
+    protected override void OnInitialized()
+    {
+        LoadActiveTabContent();
+    }
+
+    private void SwitchTab(string tab)
+    {
+        ActiveTab = tab;
+        LoadActiveTabContent();
+    }
+
+    private void LoadActiveTabContent()
+    {
+        IsLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            switch (ActiveTab)
+            {
+                case "worlds":
+                    WorldSaves = ResourceService.GetWorldSaves(CurrentVersionId);
+                    break;
+                case "resourcepacks":
+                    ResourcePacks = ResourceService.GetResourcePacks();
+                    break;
+                case "screenshots":
+                    Screenshots = ResourceService.GetScreenshots();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"加载资源失败: {ex.Message}");
+        }
+
+        IsLoading = false;
+        StateHasChanged();
+    }
+
+    private void RefreshWorlds()
+    {
+        LoadActiveTabContent();
+    }
+
+    private void RefreshResourcePacks()
+    {
+        LoadActiveTabContent();
+    }
+
+    private void RefreshScreenshots()
+    {
+        LoadActiveTabContent();
+    }
+
+    private void BackupWorld(string worldPath)
+    {
+        try
+        {
+            if (ResourceService.BackupWorld(worldPath))
+            {
+                System.Windows.Forms.MessageBox.Show("世界备份成功", "成功",
+                    System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Information);
+            }
+            else
+            {
+                System.Windows.Forms.MessageBox.Show("世界备份失败", "错误",
+                    System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Forms.MessageBox.Show($"备份世界失败: {ex.Message}", "错误",
+                System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+        }
+    }
+
+    private void OpenWorldFolder(string worldPath)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start("explorer.exe", worldPath);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"打开文件夹失败: {ex.Message}");
+        }
+    }
+
+    private void OpenResourcePacksFolder()
+    {
+        try
+        {
+            var resourcePacksDir = System.IO.Path.Combine(PathService.GameDir, "resourcepacks");
+            if (System.IO.Directory.Exists(resourcePacksDir))
+            {
+                System.Diagnostics.Process.Start("explorer.exe", resourcePacksDir);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"打开文件夹失败: {ex.Message}");
+        }
+    }
+
+    private void ToggleResourcePack(ResourcePack pack)
+    {
+        try
+        {
+            if (ResourceService.ToggleResourcePack(pack.FilePath, !pack.Enabled))
+            {
+                LoadActiveTabContent();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Forms.MessageBox.Show($"切换资源包状态失败: {ex.Message}", "错误",
+                System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+        }
+    }
+
+    private void OpenScreenshotsFolder()
+    {
+        try
+        {
+            var screenshotsDir = System.IO.Path.Combine(PathService.GameDir, "screenshots");
+            if (System.IO.Directory.Exists(screenshotsDir))
+            {
+                System.Diagnostics.Process.Start("explorer.exe", screenshotsDir);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"打开文件夹失败: {ex.Message}");
+        }
+    }
+
+    private void OpenScreenshot(string screenshotPath)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start("explorer.exe", "/select," + screenshotPath);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"打开截图失败: {ex.Message}");
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024)
+            return $"{bytes} B";
+        if (bytes < 1024 * 1024)
+            return $"{bytes / 1024.0:F1} KB";
+        if (bytes < 1024 * 1024 * 1024)
+            return $"{bytes / (1024.0 * 1024.0):F1} MB";
+        return $"{bytes / (1024.0 * 1024.0 * 1024.0):F1} GB";
+    }
+
+    private int FormatFileCount(string directoryPath)
+    {
+        try
+        {
+            if (System.IO.Directory.Exists(directoryPath))
+            {
+                return System.IO.Directory.GetFiles(directoryPath, "*", System.IO.SearchOption.AllDirectories).Length;
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+        return 0;
+    }
+}

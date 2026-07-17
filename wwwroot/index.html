@@ -3,14 +3,20 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>oml - 我们的世界启动器</title>
+    <title>ourmc-launcher</title>
     <base href="/" />
     <link href="css/app.css" rel="stylesheet" />
     <style>
+        @font-face {
+            font-family: 'Minecraft';
+            src: url('minecraft.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        
         /* 预加载样式 - 避免闪烁 */
         html, body, #app {
             background: transparent;
-            color: transparent;
         }
         
         /* 加载时的占位样式，确保不显示文字 */
@@ -23,6 +29,7 @@
 <body>
     <div id="app"></div>
     <script src="_framework/blazor.webview.js"></script>
+    <script src="liquid-glass.js"></script>
     <script>
         // 全局 DotNet 引用
         window._omlDotNetRef = null;

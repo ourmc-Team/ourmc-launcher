@@ -1,0 +1,165 @@
+@* 游戏启动优化组件 *@
+@using ourmclauncher.Services
+@inject LaunchPresetService LaunchPresetService
+@inject NotificationService NotificationService
+
+<div class="launch-optimization-section">
+    <div class="optimization-header">
+        <h3>游戏启动优化</h3>
+        <div class="optimization-info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="16" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <span>选择优化预设可自动配置JVM参数</span>
+        </div>
+    </div>
+
+    <div class="preset-options">
+        @foreach (var preset in Presets)
+        {
+            var isSelected = SelectedPreset?.Type == preset.Type;
+            <div class="preset-card @(isSelected ? "preset-card-selected" : "")"
+                 @onclick="() => SelectPreset(preset)">
+                <div class="preset-header">
+                    <div class="preset-info">
+                        <h4>@preset.Name</h4>
+                        <p>@preset.Description</p>
+                    </div>
+                    @if (isRecommended && preset.Type == RecommendedPreset?.Type)
+                    {
+                        <span class="badge-recommended">推荐</span>
+                    }
+                </div>
+                <div class="preset-details">
+                    <div class="preset-spec">
+                        <span class="spec-label">最低内存:</span>
+                        <span class="spec-value">@preset.MinMemory MB</span>
+                    </div>
+                    <div class="preset-spec">
+                        <span class="spec-label">推荐内存:</span>
+                        <span class="spec-value">@preset.RecommendedMemory MB</span>
+                    </div>
+                </div>
+                <div class="preset-features">
+                    @if (preset.EnableG1GC)
+                    {
+                        <span class="feature-tag">G1垃圾回收</span>
+                    }
+                    @if (preset.EnableOptimizations)
+                    {
+                        <span class="feature-tag">性能优化</span>
+                    }
+                    @if (preset.EnableConcurrency)
+                    {
+                        <span class="feature-tag">并发优化</span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (SelectedPreset != null)
+    {
+        <div class="selected-preset-info">
+            <h4>已选择预设详情</h4>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">预设名称:</span>
+                    <span class="info-value">@SelectedPreset.Name</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">推荐内存:</span>
+                    <span class="info-value">@SelectedPreset.RecommendedMemory MB</span>
+                </div>
+            </div>
+            <div class="jvm-args-preview">
+                <div class="args-header">
+                    <span>JVM参数预览:</span>
+                    <button class="btn-copy" @onclick="CopyJvmArgs">复制</button>
+                </div>
+                <div class="args-content">@GeneratedJvmArgs</div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int CurrentMemory { get; set; } = 2048;
+    [Parameter] public string CustomJvmArgs { get; set; } = "";
+    [Parameter] public EventCallback<int> OnMemoryChanged { get; set; }
+    [Parameter] public EventCallback<string> OnJvmArgsChanged { get; set; }
+
+    private List<LaunchPresetService.LaunchPreset> Presets = new();
+    private LaunchPresetService.LaunchPreset? SelectedPreset;
+    private LaunchPresetService.LaunchPreset? RecommendedPreset;
+    private string GeneratedJvmArgs = "";
+    private bool isRecommended = true;
+
+    protected override void OnInitialized()
+    {
+        Presets = LaunchPresetService.GetPresets();
+        RecommendedPreset = LaunchPresetService.GetRecommendedPreset();
+
+        // 如果当前内存和参数符合某个预设，自动选中
+        AutoSelectCurrentPreset();
+    }
+
+    private void AutoSelectCurrentPreset()
+    {
+        foreach (var preset in Presets)
+        {
+            if (CurrentMemory >= preset.MinMemory - 256 && CurrentMemory <= preset.RecommendedMemory + 512)
+            {
+                SelectedPreset = preset;
+                GeneratedJvmArgs = LaunchPresetService.BuildJvmArgs(preset, CustomJvmArgs);
+                break;
+            }
+        }
+    }
+
+    private async Task SelectPreset(LaunchPresetService.LaunchPreset preset)
+    {
+        SelectedPreset = preset;
+        isRecommended = (preset.Type == RecommendedPreset?.Type);
+
+        // 生成JVM参数
+        GeneratedJvmArgs = LaunchPresetService.BuildJvmArgs(preset, CustomJvmArgs);
+
+        // 验证内存设置
+        var (valid, message) = LaunchPresetService.ValidateMemorySettings(CurrentMemory, preset);
+        if (!valid)
+        {
+            await NotificationService.Warning(message ?? "内存设置不符合预设要求", 3000);
+            // 自动调整到推荐内存
+            await OnMemoryChanged.InvokeAsync(preset.RecommendedMemory);
+        }
+        else
+        {
+            // 应用推荐内存（如果当前内存不符合预设）
+            if (CurrentMemory < preset.MinMemory || CurrentMemory > preset.RecommendedMemory * 1.5)
+            {
+                await OnMemoryChanged.InvokeAsync(preset.RecommendedMemory);
+            }
+        }
+
+        // 通知父组件更新JVM参数
+        await OnJvmArgsChanged.InvokeAsync(GeneratedJvmArgs);
+
+        await NotificationService.Success($"已应用 {preset.Name} 预设", 2000);
+    }
+
+    private async Task CopyJvmArgs()
+    {
+        try
+        {
+            System.Windows.Forms.Clipboard.SetText(GeneratedJvmArgs);
+            await NotificationService.Success("JVM参数已复制到剪贴板", 2000);
+        }
+        catch (Exception ex)
+        {
+            await NotificationService.Error($"复制失败: {ex.Message}", 2000);
+        }
+    }
+}

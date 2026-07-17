@@ -1,0 +1,39 @@
+# ─── 构建输出 ───────────────────────────
+bin/
+**/bin/
+obj/
+**/obj/
+release/
+**/release/
+
+# ─── IDE / 编辑器 ───────────────────────
+.vs/
+*.user
+*.suo
+*.sln.docstates
+*.sln.ide/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── 测试 ──────────────────────────────
+TestResults/
+**/TestResults/
+
+# ─── NuGet ──────────────────────────────
+packages/
+**/packages/*.nupkg
+
+# ─── OS 垃圾文件 ────────────────────────
+Thumbs.db
+*.DS_Store
+Desktop.ini
+
+# ─── 项目特定 ──────────────────────────
+*.zip
+*.7z
+*.rar
+nupkg/
+*.nupkg
+*.log
